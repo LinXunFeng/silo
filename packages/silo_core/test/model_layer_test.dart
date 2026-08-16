@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:silo_core/src/download/chunked_downloader.dart';
-import 'package:silo_core/src/model/gguf_variant.dart';
 import 'package:silo_core/src/model/model_ref.dart';
+import 'package:silo_core/src/model/model_variant.dart';
 import 'package:silo_core/src/model/remote_file.dart';
 import 'package:silo_core/src/source/huggingface_source.dart';
 import 'package:silo_core/src/source/model_source.dart';
@@ -45,9 +45,9 @@ void main() {
     });
   });
 
-  group('groupGgufVariants', () {
+  group('groupVariants (GGUF)', () {
     test('collapses shards into one ordered variant', () {
-      final variants = groupGgufVariants(<RemoteFile>[
+      final variants = groupVariants(<RemoteFile>[
         f('model-00003-of-00003.gguf', size: 3),
         f('model-00001-of-00003.gguf', size: 1),
         f('model-00002-of-00003.gguf', size: 2),
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('attaches mmproj to every variant', () {
-      final variants = groupGgufVariants(<RemoteFile>[
+      final variants = groupVariants(<RemoteFile>[
         f('llava-q4_k_m.gguf'),
         f('llava-q8_0.gguf'),
         f('mmproj-model-f16.gguf', size: 500),
@@ -82,7 +82,7 @@ void main() {
     });
 
     test('parses quantisation tags and ignores non-GGUF files', () {
-      final variants = groupGgufVariants(<RemoteFile>[
+      final variants = groupVariants(<RemoteFile>[
         f('qwen2.5-0.5b-instruct-q4_k_m.gguf'),
         f('qwen2.5-0.5b-instruct-iq3_xxs.gguf'),
         f('qwen2.5-0.5b-instruct-fp16.gguf'),
@@ -99,7 +99,7 @@ void main() {
     });
 
     test('separate models in one repo stay separate', () {
-      final variants = groupGgufVariants(<RemoteFile>[
+      final variants = groupVariants(<RemoteFile>[
         f('gemma-2b-q4_k_m.gguf'),
         f('gemma-7b-q4_k_m.gguf'),
       ]);
@@ -302,4 +302,92 @@ void main() {
       expect(ms.queryParameters['Revision'], 'master');
     });
   });
+
+  group('groupVariants (safetensors / MLX)', () {
+    List<RemoteFile> mlxRepo() => <RemoteFile>[
+          f('model-00001-of-00003.safetensors', size: 5000),
+          f('model-00003-of-00003.safetensors', size: 3000),
+          f('model-00002-of-00003.safetensors', size: 5000),
+          f('model.safetensors.index.json', size: 200),
+          f('config.json', size: 5),
+          f('tokenizer.json', size: 190),
+          f('tokenizer_config.json', size: 10),
+          f('chat_template.jinja', size: 8),
+          f('.gitattributes', size: 1),
+          f('configuration.json', size: 2),
+        ];
+
+    test('treats the whole repository as one variant', () {
+      final variants = groupVariants(mlxRepo(), repoName: 'Qwen3.8-27B-MLX-8bit');
+      expect(variants, hasLength(1));
+      expect(variants.single.format, ModelFormat.safetensors);
+      expect(variants.single.name, 'Qwen3.8-27B-MLX-8bit');
+    });
+
+    test('orders weight shards and carries every support file', () {
+      final v = groupVariants(mlxRepo(), repoName: 'Repo').single;
+
+      expect(v.parts.map((p) => p.name), <String>[
+        'model-00001-of-00003.safetensors',
+        'model-00002-of-00003.safetensors',
+        'model-00003-of-00003.safetensors',
+      ]);
+      // Without config/tokenizer/index the directory looks complete and will
+      // not load, so they are part of the variant, not optional extras.
+      expect(
+        v.companions.map((c) => c.name),
+        containsAll(<String>[
+          'chat_template.jinja',
+          'config.json',
+          'model.safetensors.index.json',
+          'tokenizer.json',
+          'tokenizer_config.json',
+        ]),
+      );
+    });
+
+    test('drops repository plumbing that no tool reads', () {
+      final v = groupVariants(mlxRepo(), repoName: 'Repo').single;
+      final names = v.allFiles.map((file) => file.name).toSet();
+      expect(names, isNot(contains('.gitattributes')));
+      expect(names, isNot(contains('configuration.json')));
+    });
+
+    test('a GGUF repo is never treated as safetensors', () {
+      final variants = groupVariants(<RemoteFile>[
+        f('model-q4_k_m.gguf'),
+        f('config.json'),
+      ], repoName: 'Repo');
+      expect(variants.single.format, ModelFormat.gguf);
+      expect(variants.single.allFiles.map((file) => file.name),
+          <String>['model-q4_k_m.gguf']);
+    });
+
+    test('a repo with no weights yields nothing', () {
+      expect(groupVariants(<RemoteFile>[f('README.md')]), isEmpty);
+    });
+  });
+
+  group('isShardSetComplete (safetensors)', () {
+    test('accepts a full safetensors set', () {
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('model-00001-of-00002.safetensors'),
+          f('model-00002-of-00002.safetensors'),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('rejects a short safetensors set', () {
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('model-00001-of-00006.safetensors'),
+          f('model-00002-of-00006.safetensors'),
+        ]),
+        isFalse,
+      );
+    });
+  });
+
 }

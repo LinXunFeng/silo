@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'download/chunked_downloader.dart';
 import 'download/download_types.dart';
-import 'model/gguf_variant.dart';
 import 'model/model_ref.dart';
+import 'model/model_variant.dart';
 import 'model/remote_file.dart';
 import 'source/model_source.dart';
 import 'source/source_race.dart';
@@ -109,7 +109,7 @@ class SiloLibrary {
 
   /// Lists the GGUF variants available for [ref] across every configured
   /// source, together with which sources carry it.
-  Future<({List<GgufVariant> variants, List<ResolvedSource> sources})>
+  Future<({List<ModelVariant> variants, List<ResolvedSource> sources})>
       inspect(
     ModelRef ref, {
     String? revision,
@@ -130,7 +130,7 @@ class SiloLibrary {
     resolved.sort((a, b) => _digestCoverage(b.listing)
         .compareTo(_digestCoverage(a.listing)));
     return (
-      variants: groupGgufVariants(resolved.first.listing.files),
+      variants: groupVariants(resolved.first.listing.files, repoName: ref.repo),
       sources: resolved,
     );
   }
@@ -161,13 +161,15 @@ class SiloLibrary {
     }
 
     final ResolvedSource primary = _pickListingSource(resolved);
-    final List<GgufVariant> variants =
-        groupGgufVariants(primary.listing.files);
+    final List<ModelVariant> variants =
+        groupVariants(primary.listing.files, repoName: ref.repo);
     if (variants.isEmpty) {
-      throw DownloadException('${ref.id} has no GGUF files');
+      throw DownloadException(
+        '${ref.id} has no GGUF or safetensors weights',
+      );
     }
 
-    final GgufVariant variant = _selectVariant(variants, variantName);
+    final ModelVariant variant = _selectVariant(variants, variantName);
     if (!isShardSetComplete(variant.parts)) {
       throw DownloadException(
         'variant ${variant.name} has an incomplete shard set '
@@ -444,7 +446,7 @@ class SiloLibrary {
     if (_ownsDownloader) _downloader.close();
   }
 
-  GgufVariant _selectVariant(List<GgufVariant> variants, String? name) {
+  ModelVariant _selectVariant(List<ModelVariant> variants, String? name) {
     if (name == null) {
       // Q4_K_M is the everyday default: roughly a quarter of F16 with little
       // quality loss, and what most people would pick by hand anyway.

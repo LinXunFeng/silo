@@ -332,9 +332,14 @@ class InspectCommand extends SiloCommand {
       log('');
       for (final variant in result.variants) {
         final parts = variant.isSharded ? ' ${variant.parts.length} shards' : '';
+        // Companions mean different things per format: a projector for GGUF,
+        // the mandatory config/tokenizer set for safetensors.
         final companions = variant.companions.isEmpty
             ? ''
-            : ' +${variant.companions.length} mmproj';
+            : switch (variant.format) {
+                ModelFormat.gguf => ' +${variant.companions.length} mmproj',
+                _ => ' +${variant.companions.length} support files',
+              };
         log('  ${variant.name.padRight(44)} '
             '${formatBytes(variant.totalSize).padLeft(10)}$parts$companions');
       }
@@ -393,9 +398,9 @@ class SourcesCommand extends SiloCommand {
         return 1;
       }
 
-      final variants = groupGgufVariants(resolved.first.listing.files);
+      final variants = groupVariants(resolved.first.listing.files, repoName: ref.repo);
       if (variants.isEmpty) {
-        warn('${ref.id} has no GGUF files to probe with');
+        warn('${ref.id} has no weight files to probe with');
         return 1;
       }
 

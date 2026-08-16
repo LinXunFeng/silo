@@ -20,9 +20,9 @@ export 'src/download/http_probe.dart' show RemoteFileProbe, probeRemoteFile;
 export 'src/download/part_file.dart' show PartFile;
 export 'src/download/rate_limiter.dart' show RateLimiter;
 export 'src/library.dart' show AddProgress, AddResult, SiloLibrary;
-export 'src/model/gguf_variant.dart'
-    show GgufVariant, groupGgufVariants, isShardSetComplete;
 export 'src/model/model_ref.dart' show ModelRef;
+export 'src/model/model_variant.dart'
+    show ModelFormat, ModelVariant, groupVariants, isShardSetComplete;
 export 'src/model/remote_file.dart' show ModelListing, RemoteFile;
 export 'src/source/huggingface_source.dart' show HuggingFaceSource;
 export 'src/source/model_source.dart'
