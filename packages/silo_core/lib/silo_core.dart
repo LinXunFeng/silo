@@ -25,6 +25,8 @@ export 'src/model/model_ref.dart' show ModelRef;
 export 'src/model/model_variant.dart'
     show ModelFormat, ModelVariant, groupVariants, isShardSetComplete;
 export 'src/model/remote_file.dart' show ModelListing, RemoteFile;
+export 'src/queue/download_queue.dart' show DownloadQueue;
+export 'src/queue/queue_job.dart' show QueueJob, QueueJobStatus;
 export 'src/source/huggingface_source.dart' show HuggingFaceSource;
 export 'src/source/model_source.dart'
     show HttpModelSource, ModelNotFoundException, ModelSource;

@@ -39,6 +39,7 @@ CommandRunner<int> buildRunner() {
     ..addCommand(ListCommand())
     ..addCommand(InspectCommand())
     ..addCommand(SourcesCommand())
+    ..addCommand(QueueCommand())
     ..addCommand(ScanCommand())
     ..addCommand(GcCommand())
     ..addCommand(RemoveCommand());

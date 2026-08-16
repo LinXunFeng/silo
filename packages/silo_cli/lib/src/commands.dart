@@ -6,6 +6,7 @@ import 'package:silo_core/silo_core.dart';
 
 import 'context.dart';
 import 'format.dart';
+import 'queue_runner.dart';
 
 /// Base for commands that need a configured library.
 abstract class SiloCommand extends Command<int> {
@@ -42,17 +43,18 @@ int? _parseRate(String? value) {
   return (number * multipliers[match.group(2)!.toLowerCase()]!).round();
 }
 
-/// `silo add` — pull a model into the library.
+/// `silo add` — pull one or more models into the library.
 class AddCommand extends SiloCommand {
   AddCommand() {
     argParser
       ..addOption('variant',
           abbr: 'v',
           help: 'Quantisation or variant name, e.g. Q4_K_M. '
-              'Defaults to Q4_K_M when present.')
+              'Defaults to Q4_K_M when present. Applies to every model given.')
       ..addOption('revision', help: 'Branch or tag to pull from.')
       ..addMultiOption('to',
-          help: 'Also link into these targets once downloaded, e.g. lmstudio.')
+          help: 'Link into these targets once downloaded, e.g. lmstudio.',
+          defaultsTo: <String>['lmstudio'])
       ..addFlag('race',
           defaultsTo: true,
           help: 'Measure source throughput before choosing one.');
@@ -62,71 +64,118 @@ class AddCommand extends SiloCommand {
   String get name => 'add';
 
   @override
-  String get description => 'Download a model into the Silo store.';
+  String get description => 'Download models into the Silo store.';
 
   @override
-  String get invocation => 'silo add <author/repo> [options]';
+  String get invocation => 'silo add <author/repo> [<author/repo>...] [options]';
 
   @override
   Future<int> run() async {
     final rest = argResults!.rest;
-    if (rest.length != 1) {
-      warn('expected exactly one model reference, e.g. '
+    if (rest.isEmpty) {
+      warn('expected at least one model reference, e.g. '
           'silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF');
       return 64;
     }
 
-    final ModelRef ref = ModelRef.parse(rest.single);
     final library = context.buildLibrary();
-    final status = StatusLine();
-
+    final queue = DownloadQueue(
+      library: library,
+      probeSourceSpeed: argResults!['race'] as bool,
+    );
     try {
-      log('Resolving ${ref.id} ...');
-      final result = await library.add(
-        ref,
-        variantName: argResults!['variant'] as String?,
-        revision: argResults!['revision'] as String?,
-        probeSourceSpeed: argResults!['race'] as bool,
-        onLog: (message) {
-          status.clear();
-          log(message);
-        },
-        onProgress: (p) {
-          status.update(
-            '${progressBar(p.fraction)} ${(p.fraction * 100).toStringAsFixed(1)}% '
-            '${formatBytes(p.receivedBytes)}/${formatBytes(p.totalBytes)} '
-            '${formatRate(p.file.bytesPerSecond)} '
-            'eta ${formatDuration(p.file.eta)} '
-            '[${p.fileIndex + 1}/${p.fileCount}] ${p.fileName}',
-          );
-        },
-      );
+      // Everything goes through the queue, even a single model: one code path,
+      // and an interrupted run leaves a queue the next `silo queue` can pick up.
+      for (final String reference in rest) {
+        queue.enqueue(
+          ref: ModelRef.parse(reference),
+          variantName: argResults!['variant'] as String?,
+          revision: argResults!['revision'] as String?,
+          targetIds: argResults!['to'] as List<String>,
+        );
+      }
+      await queue.save();
 
-      status.finish(
-        'Added ${result.entry.ref.id} (${result.entry.variant}) '
-        'from ${result.sourceId}',
-      );
-      log('  ${formatBytes(result.downloadedBytes)} transferred'
-          '${result.resumedBytes > 0 ? ', ${formatBytes(result.resumedBytes)} resumed' : ''}'
-          '${result.dedupedBytes > 0 ? ', ${formatBytes(result.dedupedBytes)} already in store' : ''}');
-      for (final file in result.entry.files) {
-        log('  ${file.name}  ${formatBytes(file.size)}');
+      if (rest.length > 1) {
+        log('Queued ${rest.length} models. Downloading one at a time — '
+            'parallel downloads only split the same bandwidth.');
       }
 
-      final targets = argResults!['to'] as List<String>;
-      if (targets.isNotEmpty) {
-        await _linkAndReport(library, ref, targets, result.entry.variant, log);
-      } else {
-        log('');
-        log('Link it into a tool with:');
-        log('  silo link ${ref.id} --to lmstudio');
-      }
-      return 0;
-    } on Object catch (error) {
-      status.clear();
-      warn('add failed: $error');
-      return 1;
+      await QueueRunner(queue: queue).drain();
+
+      final bool anyFailed =
+          queue.jobs.any((job) => job.status == QueueJobStatus.failed);
+      return anyFailed ? 1 : 0;
+    } on FormatException catch (error) {
+      warn('silo: ${error.message}');
+      return 64;
     } finally {
+      await queue.close();
+      library.close();
+    }
+  }
+}
+
+/// `silo queue` — inspect or resume the persisted queue.
+class QueueCommand extends SiloCommand {
+  QueueCommand() {
+    argParser
+      ..addFlag('resume',
+          negatable: false,
+          help: 'Start downloading everything left in the queue.')
+      ..addFlag('clear',
+          negatable: false, help: 'Forget the queue without downloading.');
+  }
+
+  @override
+  String get name => 'queue';
+
+  @override
+  String get description =>
+      'Show the download queue left over from an interrupted run.';
+
+  @override
+  Future<int> run() async {
+    final library = context.buildLibrary();
+    final queue = DownloadQueue(library: library);
+    try {
+      await queue.load();
+
+      if (argResults!['clear'] as bool) {
+        for (final job in queue.jobs) {
+          queue.remove(job.id);
+        }
+        await queue.save();
+        log('Queue cleared.');
+        return 0;
+      }
+
+      if (queue.jobs.isEmpty) {
+        log('Queue is empty.');
+        return 0;
+      }
+
+      for (var i = 0; i < queue.jobs.length; i++) {
+        final job = queue.jobs[i];
+        log('${i + 1}. ${job.title}  [${job.status.name}]'
+            '${job.targetIds.isEmpty ? '' : '  -> ${job.targetIds.join(', ')}'}');
+      }
+
+      if (!(argResults!['resume'] as bool)) {
+        log('');
+        log('Resume with:  silo queue --resume');
+        return 0;
+      }
+
+      log('');
+      queue.resumeAll();
+      await QueueRunner(queue: queue).drain();
+
+      final bool anyFailed =
+          queue.jobs.any((job) => job.status == QueueJobStatus.failed);
+      return anyFailed ? 1 : 0;
+    } finally {
+      await queue.close();
       library.close();
     }
   }
