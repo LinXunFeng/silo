@@ -1,0 +1,14 @@
+name: silo_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+
+workspace:
+  - packages/silo_core
+  - packages/silo_cli
+  - apps/silo_app
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

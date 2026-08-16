@@ -1,0 +1,25 @@
+name: silo_app
+description: Silo — a local model library for macOS. Download once, link everywhere.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  get: ^4.7.3
+  getx_helper: ^0.1.0
+  macos_ui: ^2.2.2
+  silo_core: ^0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,20 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+  errors:
+    todo: ignore
+
+linter:
+  rules:
+    avoid_print: true
+    prefer_final_locals: true
+    prefer_single_quotes: true
+    unawaited_futures: true
+    directives_ordering: true
+    # Off: several constructors take a publicly-named parameter and store it in
+    # a private field (`{Directory? root} : _root = root`). The suggested fix
+    # would leak the underscore into the public API.
+    prefer_initializing_formals: false
