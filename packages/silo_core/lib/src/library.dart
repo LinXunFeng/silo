@@ -46,6 +46,57 @@ class AddProgress {
       totalBytes <= 0 ? 0 : (receivedBytes / totalBytes).clamp(0.0, 1.0);
 }
 
+/// Steers a running [SiloLibrary.add].
+///
+/// An `add` spans many files and therefore many downloads; the caller holds one
+/// of these for the whole run rather than a handle per file. Pausing leaves
+/// every `.part.json` intact, so the same `add` call resumes where it stopped.
+class AddHandle {
+  DownloadHandle? _current;
+  DownloadOutcome? _stop;
+
+  /// Set when pause or cancel has been requested.
+  DownloadOutcome? get stopRequested => _stop;
+
+  bool get isStopping => _stop != null;
+
+  /// Stops after in-flight buffers land, keeping partial data resumable.
+  void pause() => _request(DownloadOutcome.paused);
+
+  /// Stops and discards the file currently transferring. Files already
+  /// ingested into the store stay there — they are complete and verified.
+  void cancel() => _request(DownloadOutcome.cancelled);
+
+  void _request(DownloadOutcome outcome) {
+    _stop ??= outcome;
+    final handle = _current;
+    if (handle == null) return;
+    if (outcome == DownloadOutcome.paused) {
+      handle.pause();
+    } else {
+      handle.cancel();
+    }
+  }
+
+  /// Changes the aggregate throttle of the file currently transferring.
+  set bytesPerSecond(int? value) => _current?.bytesPerSecond = value;
+
+  void _attach(DownloadHandle handle) {
+    _current = handle;
+    // A stop requested between files still has to take effect.
+    final outcome = _stop;
+    if (outcome != null) {
+      if (outcome == DownloadOutcome.paused) {
+        handle.pause();
+      } else {
+        handle.cancel();
+      }
+    }
+  }
+
+  void _detach() => _current = null;
+}
+
 /// What `add` did.
 class AddResult {
   const AddResult({
@@ -54,7 +105,14 @@ class AddResult {
     required this.downloadedBytes,
     required this.dedupedBytes,
     required this.resumedBytes,
+    this.outcome = DownloadOutcome.completed,
   });
+
+  /// How the run ended. Only [DownloadOutcome.completed] means the variant is
+  /// in the catalogue and ready to link.
+  final DownloadOutcome outcome;
+
+  bool get isComplete => outcome == DownloadOutcome.completed;
 
   final CatalogEntry entry;
   final String sourceId;
@@ -144,6 +202,7 @@ class SiloLibrary {
     String? variantName,
     String? revision,
     bool probeSourceSpeed = true,
+    AddHandle? handle,
     void Function(AddProgress)? onProgress,
     void Function(String message)? onLog,
   }) async {
@@ -218,6 +277,7 @@ class SiloLibrary {
         file: file,
         digest: digest,
         candidates: ordered,
+        handle: handle,
         onProgress: onProgress == null
             ? null
             : (p) => onProgress(AddProgress(
@@ -232,12 +292,33 @@ class SiloLibrary {
         onLog: onLog,
       );
 
+      downloadedBytes += fetched.transferred;
+
+      if (fetched.outcome != DownloadOutcome.completed) {
+        // Stopped part-way. Nothing is catalogued: a half-written variant that
+        // looks installed is worse than one that plainly is not there.
+        return AddResult(
+          entry: CatalogEntry(
+            ref: ref,
+            variant: variant.name,
+            sourceId: usedSourceId,
+            revision: primary.listing.revision,
+            addedAt: DateTime.now(),
+            files: catalogFiles,
+          ),
+          sourceId: usedSourceId,
+          downloadedBytes: downloadedBytes,
+          dedupedBytes: dedupedBytes,
+          resumedBytes: resumedBytes,
+          outcome: fetched.outcome,
+        );
+      }
+
       usedSourceId = fetched.sourceId;
       catalogFiles.add(
         CatalogFile(name: file.name, sha256: fetched.sha256, size: file.size),
       );
       completedBytes += file.size;
-      downloadedBytes += fetched.transferred;
       resumedBytes += file.size - fetched.transferred;
     }
 
@@ -277,10 +358,12 @@ class SiloLibrary {
   /// Because every source serves identical bytes under the same digest, a
   /// failure part-way through one mirror can be retried on another without
   /// throwing away what already landed.
-  Future<({String sha256, String sourceId, int transferred})> _fetchOne({
+  Future<({String sha256, String sourceId, int transferred, DownloadOutcome outcome})>
+      _fetchOne({
     required RemoteFile file,
     required String? digest,
     required List<ResolvedSource> candidates,
+    AddHandle? handle,
     void Function(DownloadProgress)? onProgress,
     void Function(String)? onLog,
   }) async {
@@ -298,8 +381,17 @@ class SiloLibrary {
         file.path,
         revision: candidate.listing.revision,
       );
+      if (handle != null && handle.isStopping) {
+        return (
+          sha256: '',
+          sourceId: candidate.source.id,
+          transferred: transferred,
+          outcome: handle.stopRequested!,
+        );
+      }
+
       try {
-        final DownloadOutcome outcome = await _downloader.downloadToFile(
+        final download = _downloader.download(
           url: url,
           target: staged,
           expectedSha256: digest,
@@ -307,13 +399,25 @@ class SiloLibrary {
           options: _downloader.options.copyWith(
             headers: candidate.source.headers,
           ),
-          onProgress: (p) {
-            transferred = p.transferred;
-            onProgress?.call(p);
-          },
         );
+        handle?._attach(download);
+        download.progress.listen((p) {
+          transferred = p.transferred;
+          onProgress?.call(p);
+        });
+
+        final DownloadOutcome outcome = await download.done;
+        handle?._detach();
+
         if (outcome != DownloadOutcome.completed) {
-          throw DownloadException('download did not complete: ${outcome.name}');
+          // Pause and cancel are the user's decision, not a mirror failing, so
+          // they must not send the loop off to try the next source.
+          return (
+            sha256: '',
+            sourceId: candidate.source.id,
+            transferred: transferred,
+            outcome: outcome,
+          );
         }
 
         // A source without a published digest still gets a digest — we just
@@ -324,8 +428,10 @@ class SiloLibrary {
           sha256: sha256,
           sourceId: candidate.source.id,
           transferred: transferred,
+          outcome: DownloadOutcome.completed,
         );
       } on Object catch (error) {
+        handle?._detach();
         lastError = error;
         onLog?.call('  ${file.name}: ${candidate.source.displayName} failed '
             '($error)');
