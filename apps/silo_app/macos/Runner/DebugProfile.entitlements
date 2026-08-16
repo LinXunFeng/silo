@@ -1,12 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Sandbox is deliberately OFF.
+
+  Silo's whole job is placing model files inside other applications'
+  directories — ~/.lmstudio/models, ~/.ollama, a llama.cpp checkout. A
+  sandboxed app cannot do that: $HOME is redirected into
+  ~/Library/Containers/<bundle-id>/Data, so the app sees neither the real
+  home directory nor any tool's model folder, and hard links cannot cross
+  into them.
+
+  Security-scoped bookmarks would mean asking the user to hand-pick every
+  tool directory through an open panel, and re-authorising them on every
+  launch, for an app whose entire purpose is writing to those paths.
+
+  The trade-off: Silo cannot ship through the Mac App Store. For a
+  developer tool that hard-links into other apps' storage, that was never
+  an option anyway. Distribution is direct download, signed and notarised.
+-->
 <plist version="1.0">
 <dict>
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+	<!-- Flutter's VM service (hot reload, DevTools) listens on localhost. -->
 	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>
 </plist>
