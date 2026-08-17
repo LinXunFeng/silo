@@ -164,12 +164,6 @@ abstract class AppLocalizations {
   /// **'+{count} support files'**
   String variantSupportFiles(int count);
 
-  /// No description provided for @downloadAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Download'**
-  String get downloadAction;
-
   /// No description provided for @pauseAction.
   ///
   /// In en, this message translates to:
@@ -217,12 +211,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show in Finder'**
   String get revealAction;
-
-  /// No description provided for @downloadTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Downloading'**
-  String get downloadTitle;
 
   /// No description provided for @downloadFile.
   ///
@@ -361,6 +349,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{source}: unavailable'**
   String sourceUnavailable(String source);
+
+  /// No description provided for @queueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue'**
+  String get queueTitle;
+
+  /// No description provided for @queueEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing queued.'**
+  String get queueEmpty;
+
+  /// No description provided for @queueAddAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to queue'**
+  String get queueAddAction;
+
+  /// No description provided for @queueSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{pending} waiting'**
+  String queueSummary(int pending);
+
+  /// No description provided for @queuePauseAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold queue'**
+  String get queuePauseAllAction;
+
+  /// No description provided for @queueResumeAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Start queue'**
+  String get queueResumeAllAction;
+
+  /// No description provided for @queueClearAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear finished'**
+  String get queueClearAction;
+
+  /// No description provided for @queueHeldNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue is held — nothing will start until you resume it.'**
+  String get queueHeldNotice;
+
+  /// No description provided for @queueRestoredNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} jobs restored from the last session, paused.'**
+  String queueRestoredNotice(int count);
+
+  /// No description provided for @jobStatusQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get jobStatusQueued;
+
+  /// No description provided for @jobStatusRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get jobStatusRunning;
+
+  /// No description provided for @jobStatusPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get jobStatusPaused;
+
+  /// No description provided for @jobStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get jobStatusCompleted;
+
+  /// No description provided for @jobStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get jobStatusCancelled;
+
+  /// No description provided for @jobStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get jobStatusFailed;
+
+  /// No description provided for @moveUpAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get moveUpAction;
+
+  /// No description provided for @moveDownAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get moveDownAction;
+
+  /// No description provided for @removeFromQueueAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get removeFromQueueAction;
+
+  /// No description provided for @libraryReclaimable.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} unreferenced — reclaim to free it'**
+  String libraryReclaimable(String size);
 }
 
 class _AppLocalizationsDelegate

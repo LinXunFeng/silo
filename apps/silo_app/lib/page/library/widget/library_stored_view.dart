@@ -67,6 +67,14 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
             style: typography.caption2
                 .copyWith(color: AppColors.color43A047),
           ),
+        if (state.reclaimableBytes > 0)
+          Text(
+            l10n.libraryReclaimable(
+              formatBytes(bytes: state.reclaimableBytes),
+            ),
+            style: typography.caption2
+                .copyWith(color: AppColors.colorFB8C00),
+          ),
       ],
     );
     return resultWidget;

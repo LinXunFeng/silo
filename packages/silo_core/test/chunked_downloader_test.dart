@@ -249,20 +249,23 @@ void main() {
     // Allocated to full size up front so workers can write at offsets.
     expect(await target.length(), origin.body.length);
 
-    final int servedBeforeResume = origin.rangeRequests;
-
+    DownloadProgress? last;
     final outcome = await downloader.downloadToFile(
       url: origin.url,
       target: target,
       expectedSha256: origin.digest,
       options: options,
+      onProgress: (p) => last = p,
     );
 
     expect(outcome, DownloadOutcome.completed);
     expect(await sha256OfFile(target), origin.digest);
-    // Resume re-requested only what was missing, not the whole file.
-    final int servedDuringResume = origin.rangeRequests - servedBeforeResume;
-    expect(servedDuringResume, lessThan(part.chunkCount));
+    // Resume fetched only the missing bytes, not the whole file. Counting
+    // requests instead would be flaky: a pause can land with every chunk
+    // partially done, so the resume issues just as many (much shorter)
+    // requests while transferring far less.
+    expect(last!.carriedOver, part.received);
+    expect(last!.transferred, origin.body.length - part.received);
     expect(sidecar.existsSync(), isFalse);
   });
 

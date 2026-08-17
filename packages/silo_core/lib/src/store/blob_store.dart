@@ -178,13 +178,27 @@ class BlobStore {
     );
   }
 
-  /// Deletes the blob for [sha256], if present. Returns the bytes reclaimed.
-  Future<int> remove(String sha256) async {
+  /// Deletes the blob for [sha256], if present.
+  ///
+  /// Reports separately what the disk actually gave back. Deleting a blob that
+  /// a tool still hard-links frees nothing at all — the inode survives through
+  /// the other link, and the file keeps working where it was linked. Counting
+  /// those bytes as reclaimed would make the one number this project exists to
+  /// get right into a lie.
+  Future<({int freed, int retained})> remove(String sha256) async {
     final File blob = blobFile(sha256);
-    if (!await blob.exists()) return 0;
+    if (!await blob.exists()) return (freed: 0, retained: 0);
+
     final int size = await blob.length();
+    final int? links = await linkCountOf(blob.path);
+    // Unknown link count: assume it is shared, which under-claims rather than
+    // over-claims.
+    final bool sharedElsewhere = links == null || links > 1;
+
     await blob.delete();
-    return size;
+    return sharedElsewhere
+        ? (freed: 0, retained: size)
+        : (freed: size, retained: 0);
   }
 
   /// Every SHA-256 currently in the store.
@@ -252,16 +266,40 @@ Future<bool> _isSameInode(File a, File b) async {
   return idA == await inodeIdOf(b.path);
 }
 
+/// How many directory entries point at [path]'s inode, or null when it cannot
+/// be determined.
+///
+/// A count above one means some other place — a tool's models directory —
+/// also holds this data, so deleting this entry frees no space.
+Future<int?> linkCountOf(String path) async {
+  final String? raw = await _statField(
+    path: path,
+    macOsFormat: '%l',
+    linuxFormat: '%h',
+  );
+  return raw == null ? null : int.tryParse(raw);
+}
+
 /// `device:inode` for [path], or null when it cannot be determined.
 ///
 /// `dart:io` does not expose `st_ino`, and the identity of two paths is exactly
 /// the question a deduplicating store has to answer — so ask `stat(1)`. Callers
 /// treat null as "assume different", which is the safe direction.
-Future<String?> inodeIdOf(String path) async {
+Future<String?> inodeIdOf(String path) => _statField(
+      path: path,
+      macOsFormat: '%d:%i',
+      linuxFormat: '%d:%i',
+    );
+
+Future<String?> _statField({
+  required String path,
+  required String macOsFormat,
+  required String linuxFormat,
+}) async {
   if (!Platform.isMacOS && !Platform.isLinux) return null;
   final List<String> args = Platform.isMacOS
-      ? <String>['-f', '%d:%i', path]
-      : <String>['-c', '%d:%i', path];
+      ? <String>['-f', macOsFormat, path]
+      : <String>['-c', linuxFormat, path];
   for (final String exe in <String>['/usr/bin/stat', '/bin/stat']) {
     if (!File(exe).existsSync()) continue;
     try {

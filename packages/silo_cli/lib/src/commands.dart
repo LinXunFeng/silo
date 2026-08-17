@@ -335,6 +335,12 @@ class ListCommand extends SiloCommand {
         log('Deduplication saved ${formatBytes(saved)} '
             '(${formatBytes(catalogued + linked)} visible to tools)');
       }
+
+      final reclaimable = await library.reclaimable();
+      if (reclaimable.blobs > 0) {
+        log('${formatBytes(reclaimable.bytes)} in ${reclaimable.blobs} '
+            'unreferenced blob(s) — run `silo gc`');
+      }
       return 0;
     } finally {
       library.close();
@@ -488,9 +494,19 @@ class GcCommand extends SiloCommand {
         log('Nothing to collect.');
         return 0;
       }
+
       log(dryRun
-          ? 'Would free ${formatBytes(result.bytes)} across ${result.blobs} blob(s)'
-          : 'Freed ${formatBytes(result.bytes)} across ${result.blobs} blob(s)');
+          ? 'Would drop ${result.blobs} blob(s), '
+              'freeing ${formatBytes(result.freedBytes)}'
+          : 'Dropped ${result.blobs} blob(s), '
+              'freeing ${formatBytes(result.freedBytes)}');
+      if (result.retainedBytes > 0) {
+        // Being precise here matters: the bytes are gone from the store but
+        // still on the disk, because a tool holds its own hard link to them.
+        log('${formatBytes(result.retainedBytes)} was not reclaimed — still '
+            'hard-linked into a tool, which goes on using it.');
+        log('Remove it from the tool as well to get that space back.');
+      }
       return 0;
     } finally {
       library.close();

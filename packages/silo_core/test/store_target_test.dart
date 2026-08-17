@@ -281,4 +281,40 @@ void main() {
       expect((await Catalog.read(file)).entries, isEmpty);
     });
   });
+
+  group('reclaiming space', () {
+    test('removing an unlinked blob frees its bytes', () async {
+      final data = bytes(64 * 1024, 20);
+      final digest = await stage('m.gguf', data);
+
+      final result = await store.remove(digest);
+      expect(result.freed, data.length);
+      expect(result.retained, 0);
+    });
+
+    test('removing a blob a tool still hard-links frees nothing', () async {
+      final data = bytes(64 * 1024, 21);
+      final digest = await stage('m.gguf', data);
+      final destination = File('${tmp.path}/tool/m.gguf');
+      await store.linkTo(digest, destination);
+
+      final result = await store.remove(digest);
+
+      // The store entry is gone but the disk gave nothing back: the tool's
+      // link still holds the inode, and the file keeps working there.
+      expect(result.freed, 0);
+      expect(result.retained, data.length);
+      expect(await store.has(digest), isFalse);
+      expect(await destination.readAsBytes(), data);
+    });
+
+    test('linkCountOf sees the extra reference', () async {
+      final digest = await stage('m.gguf', bytes(1024, 22));
+      final blob = store.blobFile(digest);
+      expect(await linkCountOf(blob.path), 1);
+
+      await store.linkTo(digest, File('${tmp.path}/tool/m.gguf'));
+      expect(await linkCountOf(blob.path), 2);
+    });
+  });
 }

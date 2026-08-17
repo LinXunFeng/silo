@@ -34,7 +34,7 @@ export 'src/source/modelscope_source.dart' show ModelScopeSource;
 export 'src/source/source_race.dart'
     show ResolvedSource, SourceSpeed, raceSources, resolveSources;
 export 'src/store/blob_store.dart'
-    show BlobStore, LinkMethod, LinkResult, inodeIdOf;
+    show BlobStore, LinkMethod, LinkResult, inodeIdOf, linkCountOf;
 export 'src/store/catalog.dart'
     show Catalog, CatalogEntry, CatalogFile, LinkRecord;
 export 'src/target/download_target.dart'

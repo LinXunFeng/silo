@@ -50,9 +50,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get downloadAction => '下载';
-
-  @override
   String get pauseAction => '暂停';
 
   @override
@@ -75,9 +72,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get revealAction => '在访达中显示';
-
-  @override
-  String get downloadTitle => '正在下载';
 
   @override
   String downloadFile(String name, int index, int count) {
@@ -170,5 +164,68 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String sourceUnavailable(String source) {
     return '$source：不可用';
+  }
+
+  @override
+  String get queueTitle => '下载队列';
+
+  @override
+  String get queueEmpty => '队列是空的。';
+
+  @override
+  String get queueAddAction => '加入队列';
+
+  @override
+  String queueSummary(int pending) {
+    return '$pending 个待下载';
+  }
+
+  @override
+  String get queuePauseAllAction => '暂停队列';
+
+  @override
+  String get queueResumeAllAction => '开始队列';
+
+  @override
+  String get queueClearAction => '清理已完成';
+
+  @override
+  String get queueHeldNotice => '队列已暂停 —— 在你点开始之前不会有任何任务启动。';
+
+  @override
+  String queueRestoredNotice(int count) {
+    return '从上次会话恢复了 $count 个任务，均为暂停状态。';
+  }
+
+  @override
+  String get jobStatusQueued => '排队中';
+
+  @override
+  String get jobStatusRunning => '正在下载';
+
+  @override
+  String get jobStatusPaused => '已暂停';
+
+  @override
+  String get jobStatusCompleted => '已完成';
+
+  @override
+  String get jobStatusCancelled => '已取消';
+
+  @override
+  String get jobStatusFailed => '失败';
+
+  @override
+  String get moveUpAction => '上移';
+
+  @override
+  String get moveDownAction => '下移';
+
+  @override
+  String get removeFromQueueAction => '移出队列';
+
+  @override
+  String libraryReclaimable(String size) {
+    return '$size 已无人引用 —— 回收即可释放';
   }
 }

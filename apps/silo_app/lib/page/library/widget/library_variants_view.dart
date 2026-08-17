@@ -49,7 +49,7 @@ class _LibraryVariantsViewState extends State<LibraryVariantsView>
         const SizedBox(height: 6),
         ...variantRows,
         const SizedBox(height: 12),
-        _buildDownloadButton(),
+        _buildQueueButton(),
       ],
     );
     resultWidget = Padding(
@@ -132,11 +132,13 @@ class _LibraryVariantsViewState extends State<LibraryVariantsView>
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
-  Widget _buildDownloadButton() {
+  /// Never disabled: queueing a second model while the first transfers is the
+  /// point of having a queue.
+  Widget _buildQueueButton() {
     return PushButton(
       controlSize: ControlSize.large,
-      onPressed: state.isDownloading ? null : logic.startDownload,
-      child: Text(l10n.downloadAction),
+      onPressed: logic.enqueueSelected,
+      child: Text(l10n.queueAddAction),
     );
   }
 }

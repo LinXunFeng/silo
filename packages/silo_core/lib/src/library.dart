@@ -510,27 +510,59 @@ class SiloLibrary {
     return results;
   }
 
-  /// Deletes blobs no catalogued variant references. Returns bytes reclaimed.
-  Future<({int blobs, int bytes})> gc({bool dryRun = false}) async {
-    final catalog = await readCatalog();
-    final Set<String> referenced = catalog.referencedBlobs();
-    final List<String> present = await store.listBlobs();
+  /// Deletes blobs no catalogued variant references.
+  ///
+  /// [freedBytes] is what the disk actually gave back. [retainedBytes] is data
+  /// that was dropped from the store but is still hard-linked into a tool, so it
+  /// cost nothing to keep and nothing to remove — the tool goes on using it.
+  /// Reporting the two together as "reclaimed" would overstate the result every
+  /// time a forgotten model is still installed somewhere.
+  Future<({int blobs, int freedBytes, int retainedBytes})> gc({
+    bool dryRun = false,
+  }) async {
+    final List<String> orphans = await _orphanBlobs();
 
-    var bytes = 0;
-    var count = 0;
-    for (final String sha256 in present) {
-      if (referenced.contains(sha256)) continue;
-      count++;
+    var freed = 0;
+    var retained = 0;
+    for (final String sha256 in orphans) {
       if (dryRun) {
-        bytes += await store.blobFile(sha256).length();
+        final int size = await store.blobFile(sha256).length();
+        final int? links = await linkCountOf(store.blobFile(sha256).path);
+        if (links == null || links > 1) {
+          retained += size;
+        } else {
+          freed += size;
+        }
       } else {
-        bytes += await store.remove(sha256);
+        final result = await store.remove(sha256);
+        freed += result.freed;
+        retained += result.retained;
       }
     }
     if (!dryRun) {
-      bytes += await store.pruneStaging();
+      freed += await store.pruneStaging();
     }
-    return (blobs: count, bytes: bytes);
+    return (blobs: orphans.length, freedBytes: freed, retainedBytes: retained);
+  }
+
+  /// Bytes sitting in the store that no catalogued variant references.
+  ///
+  /// Surfaced so the space is visible before someone goes looking for it: a
+  /// store larger than the sum of its models is otherwise unexplained.
+  Future<({int blobs, int bytes})> reclaimable() async {
+    final List<String> orphans = await _orphanBlobs();
+    var bytes = 0;
+    for (final String sha256 in orphans) {
+      bytes += await store.blobFile(sha256).length();
+    }
+    return (blobs: orphans.length, bytes: bytes);
+  }
+
+  Future<List<String>> _orphanBlobs() async {
+    final catalog = await readCatalog();
+    final Set<String> referenced = catalog.referencedBlobs();
+    final List<String> present = await store.listBlobs();
+    return present.where((sha256) => !referenced.contains(sha256)).toList();
   }
 
   /// Forgets a variant, leaving `gc` to reclaim its blobs.

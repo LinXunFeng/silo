@@ -7,7 +7,7 @@ import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
 import 'package:silo_app/page/library/logic/library_logic_link.dart';
 import 'package:silo_app/page/library/state/library_state.dart';
-import 'package:silo_app/page/library/widget/library_download_view.dart';
+import 'package:silo_app/page/library/widget/library_queue_view.dart';
 import 'package:silo_app/page/library/widget/library_search_view.dart';
 import 'package:silo_app/page/library/widget/library_stored_view.dart';
 import 'package:silo_app/page/library/widget/library_targets_view.dart';
@@ -105,10 +105,10 @@ class LibraryPageState extends State<LibraryPage>
         _buildTagline(),
         const SizedBox(height: 16),
         const LibrarySearchView(),
-        // Above the variant list on purpose: a run in flight is the most
+        // Above the variant list on purpose: work in flight is the most
         // important thing on screen, and a long list of quantisations would
         // otherwise push it below the fold exactly when it matters.
-        const LibraryDownloadView(),
+        const LibraryQueueView(),
         const LibraryTargetsView(),
         const LibraryVariantsView(),
       ],

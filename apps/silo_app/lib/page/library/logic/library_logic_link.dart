@@ -3,6 +3,10 @@ import 'package:silo_app/page/library/logic/library_logic.dart';
 import 'package:silo_core/silo_core.dart';
 
 /// Distributing stored models into local tools, and reclaiming space.
+///
+/// Linking after a download is the queue's job — each job carries the targets it
+/// was queued for. What is left here is linking on demand, from the stored
+/// library, after the fact.
 extension LibraryLogicLink on LibraryLogic {
   void toggleTarget({required String targetId}) {
     if (state.selectedTargetIds.contains(targetId)) {
@@ -11,14 +15,6 @@ extension LibraryLogicLink on LibraryLogic {
       state.selectedTargetIds.add(targetId);
     }
     update(<Object>[LibraryUpdateType.targets]);
-  }
-
-  /// Links the variant that just finished downloading.
-  Future<void> linkActiveToSelectedTargets() async {
-    final ref = state.activeRef;
-    final variantName = state.activeVariantName;
-    if (ref == null || variantName == null) return;
-    await linkEntry(ref: ref, variantName: variantName);
   }
 
   /// Hard-links a stored variant into every selected target.
@@ -30,27 +26,17 @@ extension LibraryLogicLink on LibraryLogic {
     if (targetIds.isEmpty) return;
 
     try {
-      final results = await library.link(
+      await library.link(
         ref,
         targetIds: targetIds,
         variantName: variantName,
       );
-
-      var visible = 0;
-      var cost = 0;
-      for (final result in results) {
-        visible += result.apparentSize;
-        cost += result.bytesOnDisk;
-      }
-      state.lastLinkVisibleBytes = visible;
-      state.lastLinkCostBytes = cost;
       state.errorMessage = null;
     } on Object catch (error) {
       state.errorMessage = '$error';
     }
 
     await loadStored();
-    update(<Object>[LibraryUpdateType.download]);
   }
 
   /// Forgets a variant. Its blobs survive until [reclaimSpace] runs, so a
@@ -64,10 +50,15 @@ extension LibraryLogicLink on LibraryLogic {
   }
 
   /// Deletes blobs nothing references.
+  ///
+  /// Records what the disk actually gave back separately from what was dropped
+  /// but is still hard-linked into a tool — that data keeps working where it is
+  /// linked, and claiming it as reclaimed would overstate the result.
   Future<void> reclaimSpace() async {
     final result = await library.gc();
     state.lastGcBlobs = result.blobs;
-    state.lastGcBytes = result.bytes;
+    state.lastGcFreedBytes = result.freedBytes;
+    state.lastGcRetainedBytes = result.retainedBytes;
     await loadStored();
   }
 }

@@ -249,7 +249,8 @@ void main() {
 
     final result = await library.gc();
     expect(result.blobs, 4);
-    expect(result.bytes, greaterThan(0));
+    expect(result.freedBytes, greaterThan(0));
+    expect(result.retainedBytes, 0, reason: 'nothing was linked into a tool');
     expect(await store.listBlobs(), isEmpty);
   });
 }

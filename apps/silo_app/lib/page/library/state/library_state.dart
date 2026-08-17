@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_core/silo_core.dart';
 
 class LibraryState {
@@ -11,6 +10,8 @@ class LibraryState {
   // ── Lookup ────────────────────────────────────────────────────────────────
 
   bool isSearching = false;
+
+  String? errorMessage;
 
   /// The repository currently being inspected.
   ModelRef? inspectedRef;
@@ -31,31 +32,14 @@ class LibraryState {
     return null;
   }
 
-  // ── Download ──────────────────────────────────────────────────────────────
+  // ── Queue ─────────────────────────────────────────────────────────────────
 
-  LibraryStatus status = LibraryStatus.idle;
+  /// Jobs restored from a previous session, so the UI can say so once.
+  int restoredJobCount = 0;
 
-  /// Non-null while a run is in flight; the handle that pauses or cancels it.
-  AddHandle? addHandle;
-
-  AddProgress? progress;
-
-  /// The model a run is working on, so the UI keeps naming it after the
-  /// selection changes underneath.
-  ModelRef? activeRef;
-  String? activeVariantName;
-
-  /// Free-form line under the progress bar: source speeds, failures, results.
-  String? statusDetail;
-
-  String? errorMessage;
-
-  bool get isDownloading =>
-      status == LibraryStatus.resolving ||
-      status == LibraryStatus.downloading ||
-      status == LibraryStatus.verifying;
-
-  bool get canPause => status == LibraryStatus.downloading;
+  /// How many jobs had finished last time the library was reloaded, so a
+  /// completion can be noticed without reloading on every progress tick.
+  int lastFinishedCount = 0;
 
   // ── Stored library ────────────────────────────────────────────────────────
 
@@ -65,6 +49,10 @@ class LibraryState {
 
   /// Bytes the same files would have cost stored conventionally.
   int logicalBytes = 0;
+
+  /// Bytes in the store that no catalogued model references. Without this the
+  /// store's size is simply larger than the models in it, with no explanation.
+  int reclaimableBytes = 0;
 
   int get savedBytes {
     final saved = logicalBytes - storeBytes;
@@ -80,15 +68,14 @@ class LibraryState {
 
   Set<String> selectedTargetIds = <String>{'lmstudio'};
 
-  /// Result of the most recent link, for the "0 B extra on disk" line that
-  /// makes the dedup claim concrete rather than a slogan.
-  int? lastLinkVisibleBytes;
-  int? lastLinkCostBytes;
-
   // ── Housekeeping ──────────────────────────────────────────────────────────
 
   int? lastGcBlobs;
-  int? lastGcBytes;
+  int? lastGcFreedBytes;
+
+  /// Dropped from the store but still hard-linked into a tool, so no space came
+  /// back. Kept apart from [lastGcFreedBytes] so the report stays truthful.
+  int? lastGcRetainedBytes;
 
   void dispose() {
     searchController.dispose();

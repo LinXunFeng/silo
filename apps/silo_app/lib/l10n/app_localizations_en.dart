@@ -50,9 +50,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadAction => 'Download';
-
-  @override
   String get pauseAction => 'Pause';
 
   @override
@@ -75,9 +72,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get revealAction => 'Show in Finder';
-
-  @override
-  String get downloadTitle => 'Downloading';
 
   @override
   String downloadFile(String name, int index, int count) {
@@ -171,5 +165,69 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String sourceUnavailable(String source) {
     return '$source: unavailable';
+  }
+
+  @override
+  String get queueTitle => 'Queue';
+
+  @override
+  String get queueEmpty => 'Nothing queued.';
+
+  @override
+  String get queueAddAction => 'Add to queue';
+
+  @override
+  String queueSummary(int pending) {
+    return '$pending waiting';
+  }
+
+  @override
+  String get queuePauseAllAction => 'Hold queue';
+
+  @override
+  String get queueResumeAllAction => 'Start queue';
+
+  @override
+  String get queueClearAction => 'Clear finished';
+
+  @override
+  String get queueHeldNotice =>
+      'Queue is held — nothing will start until you resume it.';
+
+  @override
+  String queueRestoredNotice(int count) {
+    return '$count jobs restored from the last session, paused.';
+  }
+
+  @override
+  String get jobStatusQueued => 'Waiting';
+
+  @override
+  String get jobStatusRunning => 'Downloading';
+
+  @override
+  String get jobStatusPaused => 'Paused';
+
+  @override
+  String get jobStatusCompleted => 'Done';
+
+  @override
+  String get jobStatusCancelled => 'Cancelled';
+
+  @override
+  String get jobStatusFailed => 'Failed';
+
+  @override
+  String get moveUpAction => 'Move up';
+
+  @override
+  String get moveDownAction => 'Move down';
+
+  @override
+  String get removeFromQueueAction => 'Remove';
+
+  @override
+  String libraryReclaimable(String size) {
+    return '$size unreferenced — reclaim to free it';
   }
 }

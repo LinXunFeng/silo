@@ -40,6 +40,10 @@ class DownloadQueue {
   var _counter = 0;
   var _pumping = false;
 
+  /// The loop currently draining the queue, so shutting down can wait for the
+  /// job in flight to actually stop rather than just asking it to.
+  Future<void>? _pumpFuture;
+
   /// Set by [pauseAll]. A halted queue starts nothing, including jobs added
   /// after it was halted — otherwise "pause everything" would quietly stop
   /// meaning that the moment something new arrived.
@@ -216,8 +220,14 @@ class DownloadQueue {
   ///
   /// Safe to call at any time; overlapping calls collapse into one loop, which
   /// is what keeps the queue serial.
-  Future<void> _pump() async {
-    if (_pumping) return;
+  Future<void> _pump() {
+    if (_pumping) return _pumpFuture ?? Future<void>.value();
+    final future = _pumpLoop();
+    _pumpFuture = future;
+    return future;
+  }
+
+  Future<void> _pumpLoop() async {
     _pumping = true;
     try {
       while (true) {
@@ -227,6 +237,7 @@ class DownloadQueue {
       }
     } finally {
       _pumping = false;
+      _pumpFuture = null;
     }
   }
 
@@ -378,8 +389,17 @@ class DownloadQueue {
     }
   }
 
+  /// Stops the queue and waits for the job in flight to finish stopping.
+  ///
+  /// Awaiting matters: a caller that tears down its storage right after closing
+  /// would otherwise race a download still writing into it.
   Future<void> close() async {
+    _halted = true;
     _handle?.pause();
+    final pending = _pumpFuture;
+    if (pending != null) {
+      await pending.catchError((Object _) {});
+    }
     await _changes.close();
   }
 }

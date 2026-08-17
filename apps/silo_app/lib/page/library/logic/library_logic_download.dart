@@ -1,94 +1,65 @@
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
-import 'package:silo_app/page/library/logic/library_logic_link.dart';
 import 'package:silo_core/silo_core.dart';
 
-/// Running, pausing and cancelling a download.
+/// Putting work on the queue and steering it.
+///
+/// Nothing here awaits a download. The queue runs on its own and reports
+/// through [LibraryLogic.queue]'s change stream, so the UI stays responsive and
+/// a user can keep browsing and queueing while something transfers.
 extension LibraryLogicDownload on LibraryLogic {
-  /// Downloads the selected variant into the store.
-  ///
-  /// Resuming is the same call: a paused run left its `.part.json` sidecars in
-  /// place, so starting again picks up mid-file rather than from zero.
-  Future<void> startDownload() async {
+  /// Queues the selected variant, to be linked into the selected targets when
+  /// it finishes.
+  void enqueueSelected() {
     final ref = state.inspectedRef;
     final variant = state.selectedVariant;
-    if (ref == null || variant == null || state.isDownloading) return;
+    if (ref == null || variant == null) return;
 
-    final handle = AddHandle();
-    state.addHandle = handle;
-    state.activeRef = ref;
-    state.activeVariantName = variant.name;
-    state.status = LibraryStatus.resolving;
-    state.progress = null;
-    state.statusDetail = null;
-    state.errorMessage = null;
-    update(<Object>[LibraryUpdateType.download]);
+    queue.enqueue(
+      ref: ref,
+      variantName: variant.name,
+      targetIds: state.selectedTargetIds.toList(),
+    );
+  }
 
-    try {
-      final result = await library.add(
-        ref,
-        variantName: variant.name,
-        handle: handle,
-        onLog: _onLog,
-        onProgress: _onProgress,
-      );
+  void pauseJob({required String jobId}) => queue.pause(jobId);
 
-      switch (result.outcome) {
-        case DownloadOutcome.completed:
-          state.status = LibraryStatus.done;
-          state.statusDetail = null;
-          await loadStored();
-          // Linking straight after a download is what the user came for, so
-          // do it rather than making them press a second button.
-          await linkActiveToSelectedTargets();
-        case DownloadOutcome.paused:
-          state.status = LibraryStatus.paused;
-        case DownloadOutcome.cancelled:
-          state.status = LibraryStatus.cancelled;
-      }
-    } on Object catch (error) {
-      state.status = LibraryStatus.failed;
-      state.errorMessage = '$error';
-    } finally {
-      state.addHandle = null;
-      update(<Object>[LibraryUpdateType.download]);
+  void resumeJob({required String jobId}) => queue.resume(jobId);
+
+  void cancelJob({required String jobId}) => queue.cancel(jobId);
+
+  void removeJob({required String jobId}) => queue.remove(jobId);
+
+  void moveJobUp({required String jobId}) => queue.moveUp(jobId);
+
+  void moveJobDown({required String jobId}) => queue.moveDown(jobId);
+
+  void clearFinishedJobs() => queue.clearFinished();
+
+  /// Holds the whole queue, or releases it.
+  void toggleQueueHold() {
+    if (queue.isHalted) {
+      queue.resumeAll();
+    } else {
+      queue.pauseAll();
     }
   }
 
-  void pauseDownload() {
-    state.addHandle?.pause();
-    update(<Object>[LibraryUpdateType.download]);
-  }
+  /// Called for every queue change, including progress ticks.
+  ///
+  /// Only the queue section is rebuilt here. Progress arrives several times a
+  /// second, and rebuilding the variant table and the stored-model list at that
+  /// rate would be wasted work.
+  void onQueueChanged(DownloadQueue queue) {
+    update(<Object>[LibraryUpdateType.queue]);
 
-  void cancelDownload() {
-    state.addHandle?.cancel();
-    update(<Object>[LibraryUpdateType.download]);
-  }
-
-  /// Resumes a paused run by issuing the same add again.
-  Future<void> resumeDownload() async {
-    final ref = state.activeRef;
-    final variantName = state.activeVariantName;
-    if (ref == null || variantName == null) return;
-
-    state.inspectedRef = ref;
-    state.selectedVariantName = variantName;
-    await startDownload();
-  }
-
-  void _onLog(String message) {
-    state.statusDetail = message.trim();
-    update(<Object>[LibraryUpdateType.download]);
-  }
-
-  void _onProgress(AddProgress progress) {
-    state.progress = progress;
-    // The engine reports no separate verification phase, but a file sitting at
-    // 100% with the run still going is exactly that — and on a multi-gigabyte
-    // shard the silence would otherwise read as a hang.
-    final atEnd = progress.file.fraction == 1.0;
-    state.status =
-        atEnd ? LibraryStatus.verifying : LibraryStatus.downloading;
-    update(<Object>[LibraryUpdateType.download]);
+    // The library only changes when something finishes, so refresh it then
+    // rather than on every tick.
+    final int finished =
+        queue.jobs.where((job) => job.isFinished).length;
+    if (finished != state.lastFinishedCount) {
+      state.lastFinishedCount = finished;
+      loadStored();
+    }
   }
 }

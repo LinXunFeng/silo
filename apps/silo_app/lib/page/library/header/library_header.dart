@@ -16,23 +16,7 @@ typedef LibraryLogicConsumerMixin<W extends StatefulWidget>
 enum LibraryUpdateType {
   search,
   variants,
-  download,
+  queue,
   stored,
   targets,
-}
-
-/// Where a run currently is, for the status line.
-enum LibraryStatus {
-  idle,
-  resolving,
-  downloading,
-
-  /// Every byte has landed and the SHA-256 is being computed. On a 27 GB model
-  /// this takes long enough that saying nothing looks like a hang.
-  verifying,
-
-  paused,
-  cancelled,
-  done,
-  failed,
 }

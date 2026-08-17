@@ -1,9 +1,7 @@
 {
   "@@locale": "en",
-
   "appTitle": "Silo",
   "tagline": "Download once, link everywhere.",
-
   "searchLabel": "Model",
   "searchPlaceholder": "author/repo, or a hub URL",
   "searchAction": "Look up",
@@ -11,31 +9,36 @@
   "availableFrom": "Available from {sources}",
   "@availableFrom": {
     "placeholders": {
-      "sources": { "type": "String" }
+      "sources": {
+        "type": "String"
+      }
     }
   },
-
   "variantsTitle": "Variants",
   "variantShards": "{count} shards",
   "@variantShards": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "variantProjector": "+{count} mmproj",
   "@variantProjector": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "variantSupportFiles": "+{count} support files",
   "@variantSupportFiles": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
-
-  "downloadAction": "Download",
   "pauseAction": "Pause",
   "resumeAction": "Resume",
   "cancelAction": "Cancel",
@@ -44,31 +47,49 @@
   "reclaimAction": "Reclaim space",
   "refreshAction": "Refresh",
   "revealAction": "Show in Finder",
-
-  "downloadTitle": "Downloading",
   "downloadFile": "{name} ({index} of {count})",
   "@downloadFile": {
     "placeholders": {
-      "name": { "type": "String" },
-      "index": { "type": "int" },
-      "count": { "type": "int" }
+      "name": {
+        "type": "String"
+      },
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
     }
   },
   "downloadStats": "{received} of {total} · {rate} · {eta} left",
   "@downloadStats": {
     "placeholders": {
-      "received": { "type": "String" },
-      "total": { "type": "String" },
-      "rate": { "type": "String" },
-      "eta": { "type": "String" }
+      "received": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "eta": {
+        "type": "String"
+      }
     }
   },
   "downloadConnections": "{active} connections · {done}/{total} chunks",
   "@downloadConnections": {
     "placeholders": {
-      "active": { "type": "int" },
-      "done": { "type": "int" },
-      "total": { "type": "int" }
+      "active": {
+        "type": "int"
+      },
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "statusResolving": "Resolving sources…",
@@ -78,71 +99,135 @@
   "statusDone": "Added {name}",
   "@statusDone": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "unknownValue": "—",
-
   "libraryTitle": "Library",
   "libraryEmpty": "Nothing stored yet. Look up a model to get started.",
   "librarySummary": "{models} models · {size} on disk",
   "@librarySummary": {
     "placeholders": {
-      "models": { "type": "int" },
-      "size": { "type": "String" }
+      "models": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
     }
   },
   "librarySaved": "Deduplication saved {size}",
   "@librarySaved": {
     "placeholders": {
-      "size": { "type": "String" }
+      "size": {
+        "type": "String"
+      }
     }
   },
   "entryLinkedTo": "Linked into {targets}",
   "@entryLinkedTo": {
     "placeholders": {
-      "targets": { "type": "String" }
+      "targets": {
+        "type": "String"
+      }
     }
   },
   "entryNotLinked": "Not linked yet",
   "entrySource": "{source} · {revision}",
   "@entrySource": {
     "placeholders": {
-      "source": { "type": "String" },
-      "revision": { "type": "String" }
+      "source": {
+        "type": "String"
+      },
+      "revision": {
+        "type": "String"
+      }
     }
   },
-
   "targetsTitle": "Link into",
   "targetNotInstalled": "not installed",
   "linkedResult": "{visible} visible, {cost} extra on disk",
   "@linkedResult": {
     "placeholders": {
-      "visible": { "type": "String" },
-      "cost": { "type": "String" }
+      "visible": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      }
     }
   },
-
   "reclaimedSpace": "Freed {size} across {count} blobs",
   "@reclaimedSpace": {
     "placeholders": {
-      "size": { "type": "String" },
-      "count": { "type": "int" }
+      "size": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
     }
   },
   "reclaimNothing": "Nothing to reclaim",
-
   "sourceSpeed": "{source}: {rate}",
   "@sourceSpeed": {
     "placeholders": {
-      "source": { "type": "String" },
-      "rate": { "type": "String" }
+      "source": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      }
     }
   },
   "sourceUnavailable": "{source}: unavailable",
   "@sourceUnavailable": {
     "placeholders": {
-      "source": { "type": "String" }
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "queueTitle": "Queue",
+  "queueEmpty": "Nothing queued.",
+  "queueAddAction": "Add to queue",
+  "queueSummary": "{pending} waiting",
+  "@queueSummary": {
+    "placeholders": {
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
+  "queuePauseAllAction": "Hold queue",
+  "queueResumeAllAction": "Start queue",
+  "queueClearAction": "Clear finished",
+  "queueHeldNotice": "Queue is held — nothing will start until you resume it.",
+  "queueRestoredNotice": "{count} jobs restored from the last session, paused.",
+  "@queueRestoredNotice": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "jobStatusQueued": "Waiting",
+  "jobStatusRunning": "Downloading",
+  "jobStatusPaused": "Paused",
+  "jobStatusCompleted": "Done",
+  "jobStatusCancelled": "Cancelled",
+  "jobStatusFailed": "Failed",
+  "moveUpAction": "Move up",
+  "moveDownAction": "Move down",
+  "removeFromQueueAction": "Remove",
+  "libraryReclaimable": "{size} unreferenced — reclaim to free it",
+  "@libraryReclaimable": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
     }
   }
 }

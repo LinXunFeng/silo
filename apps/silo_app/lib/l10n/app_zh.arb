@@ -1,21 +1,16 @@
 {
   "@@locale": "zh",
-
   "appTitle": "Silo",
   "tagline": "只下一份，处处可用。",
-
   "searchLabel": "模型",
   "searchPlaceholder": "author/repo，或模型页链接",
   "searchAction": "查找",
   "searching": "正在查找可用源…",
   "availableFrom": "可用源：{sources}",
-
   "variantsTitle": "可选版本",
   "variantShards": "{count} 个分片",
   "variantProjector": "+{count} 个 mmproj",
   "variantSupportFiles": "+{count} 个配套文件",
-
-  "downloadAction": "下载",
   "pauseAction": "暂停",
   "resumeAction": "继续",
   "cancelAction": "取消",
@@ -24,8 +19,6 @@
   "reclaimAction": "回收空间",
   "refreshAction": "刷新",
   "revealAction": "在访达中显示",
-
-  "downloadTitle": "正在下载",
   "downloadFile": "{name}（第 {index} / {count} 个）",
   "downloadStats": "{received} / {total} · {rate} · 剩余 {eta}",
   "downloadConnections": "{active} 个连接 · {done}/{total} 分片",
@@ -35,7 +28,6 @@
   "statusCancelled": "已取消",
   "statusDone": "已入库：{name}",
   "unknownValue": "—",
-
   "libraryTitle": "模型库",
   "libraryEmpty": "库里还是空的，先查找一个模型试试。",
   "librarySummary": "{models} 个模型 · 占用 {size}",
@@ -43,14 +35,30 @@
   "entryLinkedTo": "已分发到 {targets}",
   "entryNotLinked": "尚未分发",
   "entrySource": "{source} · {revision}",
-
   "targetsTitle": "分发到",
   "targetNotInstalled": "未安装",
   "linkedResult": "工具看到 {visible}，实际额外占用 {cost}",
-
   "reclaimedSpace": "已释放 {size}，共 {count} 个 blob",
   "reclaimNothing": "没有可回收的内容",
-
   "sourceSpeed": "{source}：{rate}",
-  "sourceUnavailable": "{source}：不可用"
+  "sourceUnavailable": "{source}：不可用",
+  "queueTitle": "下载队列",
+  "queueEmpty": "队列是空的。",
+  "queueAddAction": "加入队列",
+  "queueSummary": "{pending} 个待下载",
+  "queuePauseAllAction": "暂停队列",
+  "queueResumeAllAction": "开始队列",
+  "queueClearAction": "清理已完成",
+  "queueHeldNotice": "队列已暂停 —— 在你点开始之前不会有任何任务启动。",
+  "queueRestoredNotice": "从上次会话恢复了 {count} 个任务，均为暂停状态。",
+  "jobStatusQueued": "排队中",
+  "jobStatusRunning": "正在下载",
+  "jobStatusPaused": "已暂停",
+  "jobStatusCompleted": "已完成",
+  "jobStatusCancelled": "已取消",
+  "jobStatusFailed": "失败",
+  "moveUpAction": "上移",
+  "moveDownAction": "下移",
+  "removeFromQueueAction": "移出队列",
+  "libraryReclaimable": "{size} 已无人引用 —— 回收即可释放"
 }
