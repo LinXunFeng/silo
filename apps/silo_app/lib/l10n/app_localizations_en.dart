@@ -18,7 +18,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchLabel => 'Model';
 
   @override
-  String get searchPlaceholder => 'author/repo, or a hub URL';
+  String get searchPlaceholder => 'a keyword, author/repo, or a hub URL';
 
   @override
   String get searchAction => 'Look up';
@@ -247,5 +247,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String unlinkSkipped(int count) {
     return '$count file(s) left alone — not what Silo put there';
+  }
+
+  @override
+  String get searchResultsTitle => 'Search results';
+
+  @override
+  String get searchNoResults => 'Nothing matched. Try a different keyword.';
+
+  @override
+  String get searchShowAll => 'Include transformers-only repositories';
+
+  @override
+  String resultDownloads(String count) {
+    return '$count downloads';
+  }
+
+  @override
+  String resultOnSources(String sources) {
+    return 'on $sources';
   }
 }

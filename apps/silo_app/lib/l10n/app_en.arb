@@ -3,7 +3,7 @@
   "appTitle": "Silo",
   "tagline": "Download once, link everywhere.",
   "searchLabel": "Model",
-  "searchPlaceholder": "author/repo, or a hub URL",
+  "searchPlaceholder": "a keyword, author/repo, or a hub URL",
   "searchAction": "Look up",
   "searching": "Looking up sources…",
   "availableFrom": "Available from {sources}",
@@ -255,6 +255,25 @@
     "placeholders": {
       "count": {
         "type": "int"
+      }
+    }
+  },
+  "searchResultsTitle": "Search results",
+  "searchNoResults": "Nothing matched. Try a different keyword.",
+  "searchShowAll": "Include transformers-only repositories",
+  "resultDownloads": "{count} downloads",
+  "resultOnSources": "on {sources}",
+  "@resultDownloads": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@resultOnSources": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
       }
     }
   }

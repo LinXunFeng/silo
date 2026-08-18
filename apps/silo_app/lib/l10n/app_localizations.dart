@@ -119,7 +119,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchPlaceholder.
   ///
   /// In en, this message translates to:
-  /// **'author/repo, or a hub URL'**
+  /// **'a keyword, author/repo, or a hub URL'**
   String get searchPlaceholder;
 
   /// No description provided for @searchAction.
@@ -487,6 +487,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} file(s) left alone — not what Silo put there'**
   String unlinkSkipped(int count);
+
+  /// No description provided for @searchResultsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search results'**
+  String get searchResultsTitle;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matched. Try a different keyword.'**
+  String get searchNoResults;
+
+  /// No description provided for @searchShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Include transformers-only repositories'**
+  String get searchShowAll;
+
+  /// No description provided for @resultDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} downloads'**
+  String resultDownloads(String count);
+
+  /// No description provided for @resultOnSources.
+  ///
+  /// In en, this message translates to:
+  /// **'on {sources}'**
+  String resultOnSources(String sources);
 }
 
 class _AppLocalizationsDelegate

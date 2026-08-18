@@ -4,6 +4,7 @@ import 'dart:io';
 import 'download/chunked_downloader.dart';
 import 'download/download_types.dart';
 import 'model/model_ref.dart';
+import 'model/model_search_result.dart';
 import 'model/model_variant.dart';
 import 'model/remote_file.dart';
 import 'source/model_source.dart';
@@ -215,6 +216,69 @@ class SiloLibrary {
       variants: groupVariants(resolved.first.listing.files, repoName: ref.repo),
       sources: resolved,
     );
+  }
+
+  /// Searches every source for [query] and merges the hits.
+  ///
+  /// The same repository usually exists on several hubs, so results are folded
+  /// by `author/repo` and the sources that carry it are listed together — which
+  /// is also a hint about download speed, since a repo on ModelScope will
+  /// almost certainly come down faster from China.
+  ///
+  /// A source whose search fails is skipped. One hub being unreachable should
+  /// not make searching impossible.
+  Future<List<MergedSearchResult>> search(
+    String query, {
+    int limit = 25,
+    bool localFormatsOnly = false,
+    void Function(String message)? onLog,
+  }) async {
+    final perSource = await Future.wait<List<ModelSearchResult>>(
+      sources.map((source) async {
+        try {
+          return await source.search(
+            query,
+            limit: limit,
+            localFormatsOnly: localFormatsOnly,
+          );
+        } on Object catch (error) {
+          onLog?.call('  ${source.id} search unavailable: $error');
+          return const <ModelSearchResult>[];
+        }
+      }),
+    );
+
+    final merged = <String, MergedSearchResult>{};
+    for (final results in perSource) {
+      for (final result in results) {
+        final String key = result.ref.id.toLowerCase();
+        final MergedSearchResult? existing = merged[key];
+        if (existing == null) {
+          merged[key] = MergedSearchResult(
+            primary: result,
+            sourceIds: <String>[result.sourceId],
+          );
+          continue;
+        }
+        existing.sourceIds.add(result.sourceId);
+        // Keep whichever hit carries more detail: HuggingFace supplies tags
+        // that ModelScope does not, and either may report more downloads.
+        if (result.tags.length > existing.primary.tags.length ||
+            result.downloads > existing.primary.downloads) {
+          merged[key] = MergedSearchResult(
+            primary: result.tags.isNotEmpty ? result : existing.primary,
+            sourceIds: existing.sourceIds,
+          );
+        }
+      }
+    }
+
+    var hits = merged.values.toList();
+    if (localFormatsOnly) {
+      hits = hits.where((hit) => hit.primary.isLocalReady).toList();
+    }
+    hits.sort((a, b) => b.downloads.compareTo(a.downloads));
+    return hits.length > limit ? hits.sublist(0, limit) : hits;
   }
 
   /// Downloads a variant into the store.

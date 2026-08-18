@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../download/download_types.dart';
 import '../model/model_ref.dart';
+import '../model/model_search_result.dart';
 import '../model/remote_file.dart';
 
 /// A place models can be fetched from.
@@ -20,6 +21,24 @@ abstract class ModelSource {
 
   /// Lists the files in [ref].
   Future<ModelListing> listFiles(ModelRef ref, {String? revision});
+
+  /// Finds repositories matching a free-text [query].
+  ///
+  /// [localFormatsOnly] asks for repositories a local runner can load — GGUF or
+  /// MLX — rather than the transformers originals, which otherwise dominate by
+  /// download count. It is an intent, not a mechanism: each source honours it
+  /// however it can, and a source with no way to filter may return extras for
+  /// the caller to sift.
+  ///
+  /// Returns an empty list when the source has no search of its own rather than
+  /// throwing: a mirror that cannot search is still perfectly good at serving
+  /// files, and should not take the whole search down with it.
+  Future<List<ModelSearchResult>> search(
+    String query, {
+    int limit = 25,
+    bool localFormatsOnly = false,
+  }) async =>
+      const <ModelSearchResult>[];
 
   /// Direct download URL for [path] within [ref].
   Uri downloadUri(ModelRef ref, String path, {String? revision});
@@ -40,6 +59,36 @@ abstract class HttpModelSource implements ModelSource {
 
   @override
   Map<String, String> get headers => const <String, String>{};
+
+  /// Sends [body] as JSON to [uri] and decodes the reply.
+  ///
+  /// ModelScope's search is a `PUT` with a JSON body rather than a query
+  /// string, so this exists alongside [getJson].
+  Future<Object?> sendJson(
+    Uri uri, {
+    required String method,
+    required Object body,
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    final request = await client.openUrl(method, uri).timeout(timeout);
+    request.followRedirects = true;
+    request.headers.contentType = ContentType.json;
+    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+    headers.forEach(request.headers.set);
+    request.add(utf8.encode(jsonEncode(body)));
+
+    final response = await request.close().timeout(timeout);
+    final String text = await _decodeBody(response);
+    if (response.statusCode != HttpStatus.ok) {
+      throw DownloadException(
+        'request failed: ${text.length > 200 ? '${text.substring(0, 200)}...' : text}',
+        uri: uri,
+        statusCode: response.statusCode,
+      );
+    }
+    return jsonDecode(text);
+  }
 
   /// Fetches [uri] and decodes it as JSON.
   ///

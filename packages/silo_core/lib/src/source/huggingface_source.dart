@@ -2,6 +2,7 @@ import 'dart:io';
 
 import '../download/download_types.dart';
 import '../model/model_ref.dart';
+import '../model/model_search_result.dart';
 import '../model/remote_file.dart';
 import 'model_source.dart';
 
@@ -96,6 +97,84 @@ class HuggingFaceSource extends HttpModelSource {
       files: files,
       sourceId: id,
     );
+  }
+
+  @override
+  Future<List<ModelSearchResult>> search(
+    String query, {
+    int limit = 25,
+    bool localFormatsOnly = false,
+  }) async {
+    // The hub filters by tag, and GGUF and MLX are separate tags, so wanting
+    // "something loadable locally" means asking twice and merging. Without it,
+    // searching "qwen3" returns the transformers originals — correct by
+    // download count, useless to LM Studio.
+    final List<String?> filters =
+        localFormatsOnly ? <String?>['gguf', 'mlx'] : <String?>[null];
+
+    final byId = <String, ModelSearchResult>{};
+    for (final String? filter in filters) {
+      for (final result in await _searchOnce(
+        query: query,
+        limit: limit,
+        filter: filter,
+      )) {
+        byId.putIfAbsent(result.ref.id, () => result);
+      }
+    }
+
+    final results = byId.values.toList()
+      ..sort((a, b) => b.downloads.compareTo(a.downloads));
+    return results;
+  }
+
+  Future<List<ModelSearchResult>> _searchOnce({
+    required String query,
+    required int limit,
+    required String? filter,
+  }) async {
+    final Uri uri = endpoint.replace(
+      path: '/api/models',
+      queryParameters: <String, String>{
+        'search': query,
+        'limit': '$limit',
+        // Popularity is a decent proxy for "the one you meant", and the hub
+        // has no relevance score to ask for.
+        'sort': 'downloads',
+        'direction': '-1',
+        if (filter != null) 'filter': filter,
+      },
+    );
+
+    final Object? json = await getJson(uri);
+    if (json is! List) return const <ModelSearchResult>[];
+
+    final results = <ModelSearchResult>[];
+    for (final Object? entry in json) {
+      if (entry is! Map) continue;
+      final Object? modelId = entry['id'];
+      if (modelId is! String || !modelId.contains('/')) continue;
+
+      final tags = <String>[];
+      final Object? rawTags = entry['tags'];
+      if (rawTags is List) {
+        for (final Object? tag in rawTags) {
+          if (tag is String) tags.add(tag);
+        }
+      }
+      // A tag filter is itself evidence of the format, even when the hub does
+      // not repeat it in the tag list.
+      if (filter != null && !tags.contains(filter)) tags.add(filter);
+
+      results.add(ModelSearchResult(
+        ref: ModelRef.parse(modelId),
+        sourceId: id,
+        downloads: entry['downloads'] is int ? entry['downloads']! as int : 0,
+        likes: entry['likes'] is int ? entry['likes']! as int : 0,
+        tags: tags,
+      ));
+    }
+    return results;
   }
 
   @override

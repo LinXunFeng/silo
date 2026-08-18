@@ -1,5 +1,6 @@
 import '../download/download_types.dart';
 import '../model/model_ref.dart';
+import '../model/model_search_result.dart';
 import '../model/remote_file.dart';
 import 'model_source.dart';
 
@@ -78,6 +79,59 @@ class ModelScopeSource extends HttpModelSource {
       files: files,
       sourceId: id,
     );
+  }
+
+  /// ModelScope's search is a `PUT` with a JSON body, not a query string, and
+  /// the hits arrive under `Data.Model.Models` with the author in `Path` and
+  /// the repository in `Name`.
+  @override
+  Future<List<ModelSearchResult>> search(
+    String query, {
+    int limit = 25,
+    bool localFormatsOnly = false,
+  }) async {
+    final Uri uri = endpoint.replace(path: '/api/v1/dolphin/models');
+    final Object? json = await sendJson(
+      uri,
+      method: 'PUT',
+      body: <String, Object?>{
+        'Name': query,
+        // No tag filter here, so ask for more and let the caller sift by name.
+        'PageSize': localFormatsOnly ? limit * 3 : limit,
+        'PageNumber': 1,
+        'SortBy': 'Default',
+        'Target': '',
+        'SingleCriterion': <Object>[],
+      },
+    );
+    if (json is! Map) return const <ModelSearchResult>[];
+
+    final Object? code = json['Code'];
+    if (code is int && code != 200) return const <ModelSearchResult>[];
+
+    final Object? data = json['Data'];
+    final Object? model = data is Map ? data['Model'] : null;
+    final Object? models = model is Map ? model['Models'] : null;
+    if (models is! List) return const <ModelSearchResult>[];
+
+    final results = <ModelSearchResult>[];
+    for (final Object? entry in models) {
+      if (entry is! Map) continue;
+      final Object? author = entry['Path'];
+      final Object? repo = entry['Name'];
+      if (author is! String || repo is! String) continue;
+      if (author.isEmpty || repo.isEmpty) continue;
+
+      final String? chinese = entry['ChineseName'] as String?;
+      results.add(ModelSearchResult(
+        ref: ModelRef(author, repo),
+        sourceId: id,
+        downloads: entry['Downloads'] is int ? entry['Downloads']! as int : 0,
+        likes: entry['Stars'] is int ? entry['Stars']! as int : 0,
+        description: (chinese == null || chinese.isEmpty) ? null : chinese,
+      ));
+    }
+    return results;
   }
 
   @override

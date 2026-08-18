@@ -3,7 +3,7 @@
   "appTitle": "Silo",
   "tagline": "只下一份，处处可用。",
   "searchLabel": "模型",
-  "searchPlaceholder": "author/repo，或模型页链接",
+  "searchPlaceholder": "关键词、author/repo，或模型页链接",
   "searchAction": "查找",
   "searching": "正在查找可用源…",
   "availableFrom": "可用源：{sources}",
@@ -64,5 +64,10 @@
   "unlinkAction": "取消分发",
   "gcResult": "已释放 {freed}，共 {count} 个 blob",
   "gcRetained": "{size} 未能释放 —— 仍安装在工具里",
-  "unlinkSkipped": "{count} 个文件未删除 —— 不是 Silo 放的那份"
+  "unlinkSkipped": "{count} 个文件未删除 —— 不是 Silo 放的那份",
+  "searchResultsTitle": "搜索结果",
+  "searchNoResults": "没有匹配结果，换个关键词试试。",
+  "searchShowAll": "包含仅 transformers 格式的仓库",
+  "resultDownloads": "{count} 次下载",
+  "resultOnSources": "来源：{sources}"
 }

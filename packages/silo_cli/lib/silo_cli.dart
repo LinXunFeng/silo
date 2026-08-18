@@ -37,6 +37,7 @@ CommandRunner<int> buildRunner() {
     ..addCommand(AddCommand())
     ..addCommand(LinkCommand())
     ..addCommand(ListCommand())
+    ..addCommand(SearchCommand())
     ..addCommand(InspectCommand())
     ..addCommand(SourcesCommand())
     ..addCommand(QueueCommand())

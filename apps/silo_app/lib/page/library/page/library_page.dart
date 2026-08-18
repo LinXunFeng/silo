@@ -8,6 +8,7 @@ import 'package:silo_app/page/library/logic/library_logic.dart';
 import 'package:silo_app/page/library/logic/library_logic_link.dart';
 import 'package:silo_app/page/library/state/library_state.dart';
 import 'package:silo_app/page/library/widget/library_queue_view.dart';
+import 'package:silo_app/page/library/widget/library_results_view.dart';
 import 'package:silo_app/page/library/widget/library_search_view.dart';
 import 'package:silo_app/page/library/widget/library_stored_view.dart';
 import 'package:silo_app/page/library/widget/library_targets_view.dart';
@@ -110,6 +111,7 @@ class LibraryPageState extends State<LibraryPage>
         // otherwise push it below the fold exactly when it matters.
         const LibraryQueueView(),
         const LibraryTargetsView(),
+        const LibraryResultsView(),
         const LibraryVariantsView(),
       ],
     );

@@ -348,6 +348,79 @@ class ListCommand extends SiloCommand {
   }
 }
 
+/// `silo search` — find a model without knowing its exact id.
+class SearchCommand extends SiloCommand {
+  SearchCommand() {
+    argParser
+      ..addOption('limit', defaultsTo: '20', help: 'Maximum results to show.')
+      ..addFlag('all',
+          negatable: false,
+          help: 'Include repositories that hold no GGUF or MLX weights.');
+  }
+
+  @override
+  String get name => 'search';
+
+  @override
+  String get description => 'Search the configured sources by keyword.';
+
+  @override
+  String get invocation => 'silo search <keywords...>';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      warn('expected something to search for, e.g. silo search qwen3 gguf');
+      return 64;
+    }
+
+    final library = context.buildLibrary();
+    try {
+      final String query = rest.join(' ');
+      final results = await library.search(
+        query,
+        limit: int.tryParse(argResults!['limit'] as String) ?? 20,
+        // Default to what a local runner can actually load: searching "qwen3"
+        // otherwise buries the GGUF builds under transformers repositories.
+        localFormatsOnly: !(argResults!['all'] as bool),
+        onLog: warn,
+      );
+
+      if (results.isEmpty) {
+        log('Nothing matched "$query".');
+        if (!(argResults!['all'] as bool)) {
+          log('Only GGUF and MLX repositories are shown; add --all for the rest.');
+        }
+        return 0;
+      }
+
+      for (final result in results) {
+        final formats = result.formats.isEmpty
+            ? ''
+            : '  [${result.formats.join(', ')}]';
+        log('${result.ref.id}$formats');
+        log('  ${_formatCount(result.downloads)} downloads · '
+            'on ${result.sourceIds.join(', ')}');
+      }
+      log('');
+      log('Then:  silo add ${results.first.ref.id}');
+      return 0;
+    } on Object catch (error) {
+      warn('search failed: $error');
+      return 1;
+    } finally {
+      library.close();
+    }
+  }
+
+  String _formatCount(int value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
+    return '$value';
+  }
+}
+
 /// `silo inspect` — what variants exist upstream.
 class InspectCommand extends SiloCommand {
   InspectCommand() {

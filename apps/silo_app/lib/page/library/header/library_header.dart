@@ -15,6 +15,7 @@ typedef LibraryLogicConsumerMixin<W extends StatefulWidget>
 /// listens for its own update only.
 enum LibraryUpdateType {
   search,
+  results,
   variants,
   queue,
   stored,

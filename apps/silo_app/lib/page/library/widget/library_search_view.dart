@@ -57,14 +57,14 @@ class _LibrarySearchViewState extends State<LibrarySearchView>
     return MacosTextField(
       controller: state.searchController,
       placeholder: l10n.searchPlaceholder,
-      onSubmitted: (_) => logic.search(),
+      onSubmitted: (_) => logic.submitQuery(),
     );
   }
 
   Widget _buildSubmitButton() {
     return PushButton(
       controlSize: ControlSize.large,
-      onPressed: state.isSearching ? null : logic.search,
+      onPressed: state.isSearching ? null : logic.submitQuery,
       child: Text(l10n.searchAction),
     );
   }

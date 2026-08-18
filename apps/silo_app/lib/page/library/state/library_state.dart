@@ -13,6 +13,12 @@ class LibraryState {
 
   String? errorMessage;
 
+  /// Keyword hits, when the query was not a precise `author/repo`.
+  List<MergedSearchResult> searchResults = <MergedSearchResult>[];
+
+  /// Whether to include repositories no local runner can load.
+  bool includeAllFormats = false;
+
   /// The repository currently being inspected.
   ModelRef? inspectedRef;
 

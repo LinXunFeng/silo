@@ -2,27 +2,42 @@ import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
 import 'package:silo_core/silo_core.dart';
 
-/// Looking up what a repository offers.
+/// Finding a model, whether or not its exact id is known.
 extension LibraryLogicSearch on LibraryLogic {
-  /// Inspects whatever is in the search field.
+  /// Acts on whatever is in the search field.
   ///
-  /// Accepts `author/repo` or a pasted hub URL, because the URL is what a user
-  /// actually has in hand after finding a model in a browser.
-  Future<void> search() async {
+  /// One box, two behaviours: a precise `author/repo` (or a pasted hub URL)
+  /// goes straight to that repository's variants, and anything else is treated
+  /// as keywords. Splitting them into two inputs would make the user classify
+  /// their own query before typing it.
+  Future<void> submitQuery() async {
     final query = state.searchController.text.trim();
     if (query.isEmpty || state.isSearching) return;
 
+    final ModelRef? exact = _tryParseRef(query);
+    if (exact != null) {
+      await inspect(ref: exact);
+    } else {
+      await searchByKeyword(query: query);
+    }
+  }
+
+  /// Loads the variants of a known repository.
+  Future<void> inspect({required ModelRef ref}) async {
     state.isSearching = true;
     state.errorMessage = null;
+    state.searchResults = <MergedSearchResult>[];
     state.variants = <ModelVariant>[];
     state.availableSourceIds = <String>[];
     state.selectedVariantName = null;
-    update(<Object>[LibraryUpdateType.search, LibraryUpdateType.variants]);
+    update(<Object>[
+      LibraryUpdateType.search,
+      LibraryUpdateType.results,
+      LibraryUpdateType.variants,
+    ]);
 
     try {
-      final ref = ModelRef.parse(query);
       final result = await library.inspect(ref);
-
       state.inspectedRef = ref;
       state.variants = result.variants;
       state.availableSourceIds =
@@ -30,8 +45,6 @@ extension LibraryLogicSearch on LibraryLogic {
       state.selectedVariantName = _defaultVariantName(
         variants: result.variants,
       );
-    } on FormatException catch (error) {
-      state.errorMessage = error.message;
     } on Object catch (error) {
       state.errorMessage = '$error';
     } finally {
@@ -40,9 +53,60 @@ extension LibraryLogicSearch on LibraryLogic {
     }
   }
 
+  /// Searches every source for keywords.
+  Future<void> searchByKeyword({required String query}) async {
+    state.isSearching = true;
+    state.errorMessage = null;
+    state.variants = <ModelVariant>[];
+    state.availableSourceIds = <String>[];
+    state.selectedVariantName = null;
+    state.inspectedRef = null;
+    update(<Object>[
+      LibraryUpdateType.search,
+      LibraryUpdateType.results,
+      LibraryUpdateType.variants,
+    ]);
+
+    try {
+      state.searchResults = await library.search(
+        query,
+        localFormatsOnly: !state.includeAllFormats,
+      );
+    } on Object catch (error) {
+      state.errorMessage = '$error';
+    } finally {
+      state.isSearching = false;
+      update(<Object>[LibraryUpdateType.search, LibraryUpdateType.results]);
+    }
+  }
+
+  /// Opens a search hit, keeping the field in step with what is shown.
+  Future<void> openResult({required MergedSearchResult result}) async {
+    state.searchController.text = result.ref.id;
+    await inspect(ref: result.ref);
+  }
+
+  void toggleIncludeAllFormats() {
+    state.includeAllFormats = !state.includeAllFormats;
+    update(<Object>[LibraryUpdateType.results]);
+    final query = state.searchController.text.trim();
+    if (query.isNotEmpty && _tryParseRef(query) == null) {
+      searchByKeyword(query: query);
+    }
+  }
+
   void selectVariant({required String name}) {
     state.selectedVariantName = name;
     update(<Object>[LibraryUpdateType.variants]);
+  }
+
+  /// Null when the text is not a precise repository reference.
+  ModelRef? _tryParseRef(String query) {
+    try {
+      return ModelRef.parse(query);
+    } on FormatException {
+      return null;
+    }
   }
 
   /// Q4_K_M is the everyday pick — roughly a quarter of F16 with little quality

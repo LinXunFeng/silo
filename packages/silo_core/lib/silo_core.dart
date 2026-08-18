@@ -22,6 +22,8 @@ export 'src/download/rate_limiter.dart' show RateLimiter;
 export 'src/library.dart'
     show AddHandle, AddProgress, AddResult, SiloLibrary, UnlinkResult;
 export 'src/model/model_ref.dart' show ModelRef;
+export 'src/model/model_search_result.dart'
+    show MergedSearchResult, ModelSearchResult;
 export 'src/model/model_variant.dart'
     show ModelFormat, ModelVariant, groupVariants, isShardSetComplete;
 export 'src/model/remote_file.dart' show ModelListing, RemoteFile;

@@ -19,6 +19,7 @@ is supported as a destination so far.
 |---|---|
 | Chunked download engine (ranges, resume, verify, throttle) | done |
 | Sources: hf-mirror, ModelScope, HuggingFace | done |
+| Keyword search across sources | done |
 | Content-addressed store + hard-link distribution | done |
 | Target: LM Studio | done |
 | Serial download queue (CLI + app) | done |
@@ -60,6 +61,10 @@ dart compile exe packages/silo_cli/bin/silo.dart -o ~/bin/silo
 ```
 
 ```bash
+# Don't know the exact id? Search every source at once.
+# Only GGUF and MLX repositories are shown; --all for the rest.
+silo search qwen3 coder
+
 # What does this repo offer, and which mirrors carry it?
 silo inspect Qwen/Qwen2.5-0.5B-Instruct-GGUF
 
@@ -87,9 +92,9 @@ silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
 silo gc
 ```
 
-The macOS app does the same things with a window: look up a model, pick a
-variant, watch the queue, pause and reorder it, and see what each install
-actually cost.
+The macOS app does the same things with a window. Its one search box takes
+either a keyword or an exact `author/repo`, and does the sensible thing with
+each — search results you can click through, or straight to the variant list.
 
 Useful global flags: `-j` connections (default 8), `--limit 5M` to throttle,
 `--source modelscope` to pin a mirror, `--store` to relocate the library.
@@ -113,6 +118,14 @@ error message.
   failing over mid-download between mirrors safe.
 - **HuggingFace's top-level `oid` is a git SHA-1**, not a content hash. Only
   `lfs.oid` is usable for verification.
+- **Searching a hub for "qwen3" buries the GGUF builds.** The transformers
+  originals win on downloads by an order of magnitude. HuggingFace can filter by
+  a `gguf` or `mlx` tag — two separate queries — while ModelScope has no tag
+  filter but names its repos `*-GGUF`, so the same intent is honoured
+  differently per source.
+- **ModelScope's search is a `PUT` with a JSON body**, and hits arrive under
+  `Data.Model.Models` with the author in `Path` and the repo in `Name`. It is
+  also the only one that answers a Chinese query like 通义千问.
 - **The fastest mirror is not the one you would guess.** On the machine this was
   built on, ModelScope measured 8× faster than hf-mirror. Silo samples real
   bytes before choosing rather than trusting configuration order.

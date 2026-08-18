@@ -18,7 +18,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchLabel => '模型';
 
   @override
-  String get searchPlaceholder => 'author/repo，或模型页链接';
+  String get searchPlaceholder => '关键词、author/repo，或模型页链接';
 
   @override
   String get searchAction => '查找';
@@ -245,5 +245,24 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String unlinkSkipped(int count) {
     return '$count 个文件未删除 —— 不是 Silo 放的那份';
+  }
+
+  @override
+  String get searchResultsTitle => '搜索结果';
+
+  @override
+  String get searchNoResults => '没有匹配结果，换个关键词试试。';
+
+  @override
+  String get searchShowAll => '包含仅 transformers 格式的仓库';
+
+  @override
+  String resultDownloads(String count) {
+    return '$count 次下载';
+  }
+
+  @override
+  String resultOnSources(String sources) {
+    return '来源：$sources';
   }
 }
