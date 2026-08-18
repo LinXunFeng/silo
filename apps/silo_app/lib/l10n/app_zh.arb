@@ -60,5 +60,9 @@
   "moveUpAction": "上移",
   "moveDownAction": "下移",
   "removeFromQueueAction": "移出队列",
-  "libraryReclaimable": "{size} 已无人引用 —— 回收即可释放"
+  "libraryReclaimable": "{size} 已无人引用 —— 回收即可释放",
+  "unlinkAction": "取消分发",
+  "gcResult": "已释放 {freed}，共 {count} 个 blob",
+  "gcRetained": "{size} 未能释放 —— 仍安装在工具里",
+  "unlinkSkipped": "{count} 个文件未删除 —— 不是 Silo 放的那份"
 }

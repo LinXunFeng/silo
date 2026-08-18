@@ -39,8 +39,26 @@ extension LibraryLogicLink on LibraryLogic {
     await loadStored();
   }
 
-  /// Forgets a variant. Its blobs survive until [reclaimSpace] runs, so a
-  /// mistaken removal costs nothing but a second click.
+  /// Takes a variant back out of the tools, leaving it in the store.
+  ///
+  /// Files the user replaced by hand are left alone; the count is surfaced so
+  /// the difference between "removed" and "left alone" is visible.
+  Future<void> unlinkEntry({
+    required ModelRef ref,
+    required String variantName,
+  }) async {
+    final results = await library.unlink(ref, variantName: variantName);
+    state.lastUnlinkSkipped =
+        results.fold<int>(0, (sum, r) => sum + r.skipped.length);
+    await loadStored();
+  }
+
+  /// Forgets a variant, taking it out of the tools first.
+  ///
+  /// Unlinking is not optional here: leaving the files installed would mean the
+  /// space could never be reclaimed, since the tool's hard link keeps the data
+  /// alive after the blob is dropped. Its blobs survive until [reclaimSpace]
+  /// runs, so a mistaken removal costs a re-link, not a re-download.
   Future<void> forgetEntry({
     required ModelRef ref,
     required String variantName,

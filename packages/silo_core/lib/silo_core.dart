@@ -20,7 +20,7 @@ export 'src/download/http_probe.dart' show RemoteFileProbe, probeRemoteFile;
 export 'src/download/part_file.dart' show PartFile;
 export 'src/download/rate_limiter.dart' show RateLimiter;
 export 'src/library.dart'
-    show AddHandle, AddProgress, AddResult, SiloLibrary;
+    show AddHandle, AddProgress, AddResult, SiloLibrary, UnlinkResult;
 export 'src/model/model_ref.dart' show ModelRef;
 export 'src/model/model_variant.dart'
     show ModelFormat, ModelVariant, groupVariants, isShardSetComplete;

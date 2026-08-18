@@ -514,10 +514,73 @@ class GcCommand extends SiloCommand {
   }
 }
 
+/// `silo unlink` — take a model back out of a tool.
+class UnlinkCommand extends SiloCommand {
+  UnlinkCommand() {
+    argParser
+      ..addMultiOption('from',
+          help: 'Targets to remove it from. Defaults to all of them.')
+      ..addOption('variant', abbr: 'v', help: 'Only unlink this variant.');
+  }
+
+  @override
+  String get name => 'unlink';
+
+  @override
+  String get description =>
+      'Remove a model from a tool, leaving it in the Silo store.';
+
+  @override
+  String get invocation => 'silo unlink <author/repo> [--from lmstudio]';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.length != 1) {
+      warn('expected exactly one model reference');
+      return 64;
+    }
+
+    final library = context.buildLibrary();
+    try {
+      final from = argResults!['from'] as List<String>;
+      final results = await library.unlink(
+        ModelRef.parse(rest.single),
+        variantName: argResults!['variant'] as String?,
+        targetIds: from.isEmpty ? null : from,
+      );
+
+      if (results.isEmpty) {
+        log('Nothing was linked from there.');
+        return 0;
+      }
+      for (final result in results) {
+        log('${result.targetId}: removed ${result.removed.length} file(s)');
+        for (final path in result.skipped) {
+          warn('  left alone (not the file Silo put there): $path');
+        }
+      }
+      log('');
+      log('The blobs are still in the store. Run `silo gc` to reclaim them.');
+      return 0;
+    } on Object catch (error) {
+      warn('unlink failed: $error');
+      return 1;
+    } finally {
+      library.close();
+    }
+  }
+}
+
 /// `silo rm` — forget a model, leaving gc to reclaim the space.
 class RemoveCommand extends SiloCommand {
   RemoveCommand() {
-    argParser.addOption('variant', abbr: 'v', help: 'Only forget this variant.');
+    argParser
+      ..addOption('variant', abbr: 'v', help: 'Only forget this variant.')
+      ..addFlag('keep-links',
+          negatable: false,
+          help: 'Leave the files installed in tools and only stop tracking '
+              'them. Their space cannot then be reclaimed.');
   }
 
   @override
@@ -525,7 +588,7 @@ class RemoveCommand extends SiloCommand {
 
   @override
   String get description =>
-      'Forget a model. Its blobs are freed by the next `silo gc`.';
+      'Forget a model and remove it from tools. Space is freed by `silo gc`.';
 
   @override
   String get invocation => 'silo rm <author/repo>';
@@ -541,15 +604,36 @@ class RemoveCommand extends SiloCommand {
     final library = context.buildLibrary();
     try {
       final ModelRef ref = ModelRef.parse(rest.single);
+      final bool keepLinks = argResults!['keep-links'] as bool;
+      final String? variant = argResults!['variant'] as String?;
+
+      // Report what leaves the tools before it happens, since that is the part
+      // the user can see from outside Silo.
+      if (!keepLinks) {
+        final results = await library.unlink(ref, variantName: variant);
+        for (final result in results) {
+          log('${result.targetId}: removed ${result.removed.length} file(s)');
+          for (final path in result.skipped) {
+            warn('  left alone (not the file Silo put there): $path');
+          }
+        }
+      }
+
       final bool removed = await library.forget(
         ref,
-        variantName: argResults!['variant'] as String?,
+        variantName: variant,
+        unlinkFirst: false,
       );
       if (!removed) {
         warn('${ref.id} is not in the library');
         return 1;
       }
+
       log('Forgot ${ref.id}. Run `silo gc` to reclaim the space.');
+      if (keepLinks) {
+        log('Its files are still installed, so `gc` will free nothing until '
+            'they are removed too.');
+      }
       return 0;
     } finally {
       library.close();

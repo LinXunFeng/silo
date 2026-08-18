@@ -229,5 +229,33 @@
         "type": "String"
       }
     }
+  },
+  "unlinkAction": "Unlink",
+  "gcResult": "Freed {freed} across {count} blobs",
+  "@gcResult": {
+    "placeholders": {
+      "freed": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gcRetained": "{size} not reclaimed — still installed in a tool",
+  "@gcRetained": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "unlinkSkipped": "{count} file(s) left alone — not what Silo put there",
+  "@unlinkSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

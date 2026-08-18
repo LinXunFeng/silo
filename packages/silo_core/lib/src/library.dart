@@ -128,6 +128,30 @@ class AddResult {
   final int resumedBytes;
 }
 
+
+/// What removing a variant from a tool did.
+class UnlinkResult {
+  const UnlinkResult({
+    required this.targetId,
+    required this.removed,
+    required this.skipped,
+  });
+
+  final String targetId;
+
+  /// Paths deleted from the target.
+  final List<String> removed;
+
+  /// Paths left alone because they were already gone, or because the file
+  /// there is no longer the one Silo put down.
+  final List<String> skipped;
+
+  @override
+  String toString() =>
+      'UnlinkResult($targetId, ${removed.length} removed, '
+      '${skipped.length} skipped)';
+}
+
 /// The library: sources on one side, targets on the other, a deduplicated
 /// store in the middle.
 ///
@@ -565,8 +589,131 @@ class SiloLibrary {
     return present.where((sha256) => !referenced.contains(sha256)).toList();
   }
 
+  /// Removes a variant's files from tools it was linked into.
+  ///
+  /// Only paths this library recorded are touched, and only when the file there
+  /// is still the one it put down — matched by inode against the blob. A file
+  /// the user replaced by hand is left alone and reported as skipped, because
+  /// deleting something Silo did not create would be unforgivable for a tool
+  /// that writes into other applications' directories.
+  Future<List<UnlinkResult>> unlink(
+    ModelRef ref, {
+    String? variantName,
+    List<String>? targetIds,
+  }) async {
+    final catalog = await readCatalog();
+    final Set<String>? wanted = targetIds?.toSet();
+
+    final List<CatalogEntry> entries = catalog
+        .forModel(ref)
+        .where((e) => variantName == null || e.variant == variantName)
+        .toList();
+
+    final byTarget = <String, ({List<String> removed, List<String> skipped})>{};
+
+    for (final entry in entries) {
+      for (final link in catalog.linksFor(entry.key)) {
+        if (wanted != null && !wanted.contains(link.targetId)) continue;
+
+        final bucket = byTarget.putIfAbsent(
+          link.targetId,
+          () => (removed: <String>[], skipped: <String>[]),
+        );
+
+        final file = File(link.path);
+        if (!await file.exists()) {
+          // Already gone; nothing to do, and no reason to complain.
+          continue;
+        }
+        if (!await _isOursToDelete(link: link, file: file)) {
+          bucket.skipped.add(link.path);
+          continue;
+        }
+
+        await file.delete();
+        bucket.removed.add(link.path);
+      }
+
+      catalog.dropLinks(entry.key, targetIds: wanted);
+    }
+
+    await _pruneEmptyDirectories(
+      paths: <String>[
+        for (final bucket in byTarget.values) ...bucket.removed,
+      ],
+    );
+    await catalog.write(catalogFile);
+
+    return <UnlinkResult>[
+      for (final entry in byTarget.entries)
+        UnlinkResult(
+          targetId: entry.key,
+          removed: entry.value.removed,
+          skipped: entry.value.skipped,
+        ),
+    ];
+  }
+
+  /// True when the file at [link] is still the one this library placed there.
+  ///
+  /// A hard link is the same inode as its blob. Once the blob is gone there is
+  /// nothing left to compare against, so the record is trusted — it is the only
+  /// evidence either way, and it was written when the file was created.
+  Future<bool> _isOursToDelete({
+    required LinkRecord link,
+    required File file,
+  }) async {
+    if (!link.hardLinked) {
+      // A copy shares no inode with anything; the record is all there is.
+      return true;
+    }
+    final File blob = store.blobFile(link.sha256);
+    if (!await blob.exists()) return true;
+
+    final String? blobInode = await inodeIdOf(blob.path);
+    final String? fileInode = await inodeIdOf(file.path);
+    if (blobInode == null || fileInode == null) return true;
+    return blobInode == fileInode;
+  }
+
+  /// Removes directories left empty by unlinking, up to each target's root.
+  Future<void> _pruneEmptyDirectories({required List<String> paths}) async {
+    final roots = <String>{for (final target in targets) target.root.path};
+
+    for (final path in paths) {
+      var dir = File(path).parent;
+      while (!roots.contains(dir.path) &&
+          roots.any((root) => dir.path.startsWith(root))) {
+        try {
+          if (await dir.list().isEmpty) {
+            await dir.delete();
+          } else {
+            break;
+          }
+        } on FileSystemException {
+          break;
+        }
+        dir = dir.parent;
+      }
+    }
+  }
+
   /// Forgets a variant, leaving `gc` to reclaim its blobs.
-  Future<bool> forget(ModelRef ref, {String? variantName}) async {
+  ///
+  /// Unlinks from every tool first by default. Forgetting a model while its
+  /// files stay hard-linked into LM Studio would mean `gc` could never actually
+  /// free the space — the other link keeps the data alive — so the two have to
+  /// happen together to mean anything. Pass `unlinkFirst: false` to keep the
+  /// files where they are and only stop tracking them.
+  Future<bool> forget(
+    ModelRef ref, {
+    String? variantName,
+    bool unlinkFirst = true,
+  }) async {
+    if (unlinkFirst) {
+      await unlink(ref, variantName: variantName);
+    }
+
     final catalog = await readCatalog();
     final List<CatalogEntry> matches = catalog
         .forModel(ref)

@@ -174,6 +174,13 @@ class Catalog {
     links.removeWhere((l) => l.entryKey == entryKey);
   }
 
+  /// Forgets link records for [entryKey], optionally only for some targets.
+  void dropLinks(String entryKey, {Set<String>? targetIds}) {
+    links.removeWhere((l) =>
+        l.entryKey == entryKey &&
+        (targetIds == null || targetIds.contains(l.targetId)));
+  }
+
   void recordLinks(Iterable<LinkRecord> records) {
     for (final record in records) {
       links.removeWhere(

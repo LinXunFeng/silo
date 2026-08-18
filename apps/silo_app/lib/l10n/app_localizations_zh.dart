@@ -228,4 +228,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String libraryReclaimable(String size) {
     return '$size 已无人引用 —— 回收即可释放';
   }
+
+  @override
+  String get unlinkAction => '取消分发';
+
+  @override
+  String gcResult(String freed, int count) {
+    return '已释放 $freed，共 $count 个 blob';
+  }
+
+  @override
+  String gcRetained(String size) {
+    return '$size 未能释放 —— 仍安装在工具里';
+  }
+
+  @override
+  String unlinkSkipped(int count) {
+    return '$count 个文件未删除 —— 不是 Silo 放的那份';
+  }
 }

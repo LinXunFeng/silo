@@ -253,4 +253,105 @@ void main() {
     expect(result.retainedBytes, 0, reason: 'nothing was linked into a tool');
     expect(await store.listBlobs(), isEmpty);
   });
+
+  group('unlink', () {
+    Future<Directory> installedDir() async {
+      await library.add(ref, probeSourceSpeed: false);
+      await library.link(ref, targetIds: <String>['lmstudio']);
+      return Directory('${target.root.path}/acme/Demo-MLX-8bit');
+    }
+
+    test('removes the files it placed and prunes the directory', () async {
+      final dir = await installedDir();
+      expect(await dir.list().length, 4);
+
+      final results = await library.unlink(ref);
+
+      expect(results.single.targetId, 'lmstudio');
+      expect(results.single.removed, hasLength(4));
+      expect(results.single.skipped, isEmpty);
+      expect(dir.existsSync(), isFalse, reason: 'empty dirs are pruned');
+    });
+
+    test('leaves the blobs alone — only gc removes those', () async {
+      await installedDir();
+      await library.unlink(ref);
+
+      expect(await store.listBlobs(), hasLength(4));
+      expect((await library.readCatalog()).entries, hasLength(1));
+    });
+
+    test('drops the link records so the catalogue stops claiming them',
+        () async {
+      await installedDir();
+      expect((await library.readCatalog()).links, hasLength(4));
+
+      await library.unlink(ref);
+      expect((await library.readCatalog()).links, isEmpty);
+    });
+
+    test('refuses to delete a file the user replaced by hand', () async {
+      final dir = await installedDir();
+      final planted = File('${dir.path}/config.json');
+
+      // Replace one link with an unrelated file at the same path.
+      await planted.delete();
+      await planted.writeAsBytes(bytes(64, 99));
+
+      final results = await library.unlink(ref);
+
+      expect(results.single.skipped, hasLength(1));
+      expect(results.single.skipped.single, endsWith('config.json'));
+      expect(results.single.removed, hasLength(3));
+      expect(planted.existsSync(), isTrue,
+          reason: 'a file Silo did not place must survive');
+    });
+
+    test('a missing file is not an error', () async {
+      final dir = await installedDir();
+      await File('${dir.path}/config.json').delete();
+
+      final results = await library.unlink(ref);
+      expect(results.single.removed, hasLength(3));
+      expect(results.single.skipped, isEmpty);
+    });
+
+    test('only the named targets are touched', () async {
+      await installedDir();
+
+      final results = await library.unlink(ref, targetIds: <String>['nope']);
+      expect(results, isEmpty);
+      expect((await library.readCatalog()).links, hasLength(4));
+    });
+
+    test('forget unlinks first, so gc can actually free the space', () async {
+      final dir = await installedDir();
+      expect(await dir.list().length, 4);
+
+      expect(await library.forget(ref), isTrue);
+      expect(dir.existsSync(), isFalse);
+
+      final result = await library.gc();
+      expect(result.blobs, 4);
+      expect(result.retainedBytes, 0,
+          reason: 'nothing still links the blobs, so the space is really back');
+      expect(result.freedBytes, greaterThan(0));
+    });
+
+    test('forget can keep the installed files when asked', () async {
+      final dir = await installedDir();
+
+      expect(
+        await library.forget(ref, unlinkFirst: false),
+        isTrue,
+      );
+      expect(dir.existsSync(), isTrue);
+
+      // And now gc is honest about freeing nothing: the tool still holds them.
+      final result = await library.gc();
+      expect(result.freedBytes, 0);
+      expect(result.retainedBytes, greaterThan(0));
+    });
+  });
+
 }

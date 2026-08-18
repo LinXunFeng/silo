@@ -70,6 +70,10 @@ class LibraryState {
 
   // ── Housekeeping ──────────────────────────────────────────────────────────
 
+  /// Files the last unlink refused to delete because they were no longer the
+  /// ones Silo put there.
+  int? lastUnlinkSkipped;
+
   int? lastGcBlobs;
   int? lastGcFreedBytes;
 

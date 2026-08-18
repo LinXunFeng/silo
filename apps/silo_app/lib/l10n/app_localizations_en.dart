@@ -230,4 +230,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String libraryReclaimable(String size) {
     return '$size unreferenced — reclaim to free it';
   }
+
+  @override
+  String get unlinkAction => 'Unlink';
+
+  @override
+  String gcResult(String freed, int count) {
+    return 'Freed $freed across $count blobs';
+  }
+
+  @override
+  String gcRetained(String size) {
+    return '$size not reclaimed — still installed in a tool';
+  }
+
+  @override
+  String unlinkSkipped(int count) {
+    return '$count file(s) left alone — not what Silo put there';
+  }
 }

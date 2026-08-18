@@ -463,6 +463,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{size} unreferenced — reclaim to free it'**
   String libraryReclaimable(String size);
+
+  /// No description provided for @unlinkAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get unlinkAction;
+
+  /// No description provided for @gcResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Freed {freed} across {count} blobs'**
+  String gcResult(String freed, int count);
+
+  /// No description provided for @gcRetained.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} not reclaimed — still installed in a tool'**
+  String gcRetained(String size);
+
+  /// No description provided for @unlinkSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} file(s) left alone — not what Silo put there'**
+  String unlinkSkipped(int count);
 }
 
 class _AppLocalizationsDelegate

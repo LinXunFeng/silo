@@ -75,9 +75,43 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
             style: typography.caption2
                 .copyWith(color: AppColors.colorFB8C00),
           ),
+        ..._buildOutcomeLines(),
       ],
     );
     return resultWidget;
+  }
+
+  /// Results of the last reclaim or unlink, which are otherwise invisible.
+  List<Widget> _buildOutcomeLines() {
+    final lines = <({String text, Color color})>[];
+
+    final blobs = state.lastGcBlobs;
+    final freed = state.lastGcFreedBytes;
+    if (blobs != null && freed != null && blobs > 0) {
+      lines.add((
+        text: l10n.gcResult(formatBytes(bytes: freed), blobs),
+        color: AppColors.color43A047,
+      ));
+    }
+    final retained = state.lastGcRetainedBytes;
+    if (retained != null && retained > 0) {
+      lines.add((
+        text: l10n.gcRetained(formatBytes(bytes: retained)),
+        color: AppColors.colorFB8C00,
+      ));
+    }
+    final skipped = state.lastUnlinkSkipped;
+    if (skipped != null && skipped > 0) {
+      lines.add((
+        text: l10n.unlinkSkipped(skipped),
+        color: AppColors.colorFB8C00,
+      ));
+    }
+
+    return <Widget>[
+      for (final line in lines)
+        Text(line.text, style: typography.caption2.copyWith(color: line.color)),
+    ];
   }
 
   Widget _buildEntries() {
@@ -162,6 +196,16 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
             variantName: entry.variant,
           ),
           child: Text(l10n.linkAction),
+        ),
+        const SizedBox(width: 6),
+        PushButton(
+          controlSize: ControlSize.small,
+          secondary: true,
+          onPressed: () => logic.unlinkEntry(
+            ref: entry.ref,
+            variantName: entry.variant,
+          ),
+          child: Text(l10n.unlinkAction),
         ),
         const SizedBox(width: 6),
         PushButton(
