@@ -1,3 +1,8 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/widgets.dart';
+import 'package:macos_ui/macos_ui.dart';
+import 'package:silo_app/common/format/byte_format.dart';
+import 'package:silo_app/l10n/app_localizations.dart';
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
 import 'package:silo_core/silo_core.dart';
@@ -65,6 +70,76 @@ extension LibraryLogicLink on LibraryLogic {
   }) async {
     await library.forget(ref, variantName: variantName);
     await loadStored();
+  }
+
+  /// Asks before deleting anything, then reclaims.
+  ///
+  /// The toolbar button is a bare trash icon, and what it removes — stored
+  /// files nothing refers to any more — is not something to infer from an
+  /// icon. Naming the amount and saying plainly that installed models are
+  /// untouched turns a guess into a decision.
+  Future<void> confirmReclaimSpace() async {
+    final context = state.rootContext;
+    if (context == null) return;
+
+    final reclaimable = await library.reclaimable();
+    if (!context.mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    if (reclaimable.blobs == 0) {
+      // Saying nothing would be indistinguishable from a broken button.
+      await _showNotice(context: context, message: l10n.reclaimNothing);
+      return;
+    }
+    final bool confirmed = await showMacosAlertDialog<bool>(
+          context: context,
+          builder: (dialogContext) => MacosAlertDialog(
+            appIcon: const MacosIcon(CupertinoIcons.trash, size: 56),
+            title: Text(
+              l10n.reclaimConfirmTitle(
+                formatBytes(bytes: reclaimable.bytes),
+              ),
+            ),
+            message: Text(
+              l10n.reclaimConfirmBody(reclaimable.blobs),
+              textAlign: TextAlign.center,
+            ),
+            primaryButton: PushButton(
+              controlSize: ControlSize.large,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l10n.reclaimConfirmAction),
+            ),
+            secondaryButton: PushButton(
+              controlSize: ControlSize.large,
+              secondary: true,
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.cancelAction),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (confirmed) await reclaimSpace();
+  }
+
+  Future<void> _showNotice({
+    required BuildContext context,
+    required String message,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return showMacosAlertDialog<void>(
+      context: context,
+      builder: (dialogContext) => MacosAlertDialog(
+        appIcon: const MacosIcon(CupertinoIcons.checkmark_circle, size: 56),
+        title: Text(message),
+        message: const SizedBox.shrink(),
+        primaryButton: PushButton(
+          controlSize: ControlSize.large,
+          onPressed: Navigator.of(dialogContext).pop,
+          child: Text(l10n.confirmOkAction),
+        ),
+      ),
+    );
   }
 
   /// Deletes blobs nothing references.

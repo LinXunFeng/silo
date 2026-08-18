@@ -82,18 +82,23 @@ class LibraryPageState extends State<LibraryPage>
     return ToolBar(
       title: Text(l10n.appTitle),
       titleWidth: 160,
+      // Labelled, not bare icons. A trash can in a toolbar could mean delete
+      // the selected model, or empty the library; it means neither, and
+      // nothing on screen said so.
       actions: <ToolbarItem>[
         ToolBarIconButton(
           label: l10n.reclaimAction,
+          tooltipMessage: l10n.reclaimTooltip,
           icon: const MacosIcon(CupertinoIcons.trash),
-          onPressed: logic.reclaimSpace,
-          showLabel: false,
+          onPressed: logic.confirmReclaimSpace,
+          showLabel: true,
         ),
         ToolBarIconButton(
           label: l10n.refreshAction,
+          tooltipMessage: l10n.refreshTooltip,
           icon: const MacosIcon(CupertinoIcons.refresh),
           onPressed: logic.loadStored,
-          showLabel: false,
+          showLabel: true,
         ),
       ],
     );

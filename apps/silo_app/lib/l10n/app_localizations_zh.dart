@@ -265,4 +265,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String resultOnSources(String sources) {
     return '来源：$sources';
   }
+
+  @override
+  String get reclaimTooltip => '删除库中已无人引用的文件';
+
+  @override
+  String get refreshTooltip => '重新读取模型库和工具目录';
+
+  @override
+  String reclaimConfirmTitle(String size) {
+    return '回收 $size？';
+  }
+
+  @override
+  String reclaimConfirmBody(int count) {
+    return '有 $count 个文件已不被库中任何模型引用。已安装到工具里的模型不受影响。';
+  }
+
+  @override
+  String get reclaimConfirmAction => '回收';
+
+  @override
+  String get confirmOkAction => '好';
 }

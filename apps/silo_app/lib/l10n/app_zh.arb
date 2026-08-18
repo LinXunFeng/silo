@@ -69,5 +69,11 @@
   "searchNoResults": "没有匹配结果，换个关键词试试。",
   "searchShowAll": "包含仅 transformers 格式的仓库",
   "resultDownloads": "{count} 次下载",
-  "resultOnSources": "来源：{sources}"
+  "resultOnSources": "来源：{sources}",
+  "reclaimTooltip": "删除库中已无人引用的文件",
+  "refreshTooltip": "重新读取模型库和工具目录",
+  "reclaimConfirmTitle": "回收 {size}？",
+  "reclaimConfirmBody": "有 {count} 个文件已不被库中任何模型引用。已安装到工具里的模型不受影响。",
+  "reclaimConfirmAction": "回收",
+  "confirmOkAction": "好"
 }

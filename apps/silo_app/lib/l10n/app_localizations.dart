@@ -517,6 +517,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'on {sources}'**
   String resultOnSources(String sources);
+
+  /// No description provided for @reclaimTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete stored files no model in the library refers to'**
+  String get reclaimTooltip;
+
+  /// No description provided for @refreshTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-read the store and the tool directories'**
+  String get refreshTooltip;
+
+  /// No description provided for @reclaimConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reclaim {size}?'**
+  String reclaimConfirmTitle(String size);
+
+  /// No description provided for @reclaimConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} stored file(s) are no longer referred to by any model in the library. Models installed in your tools are not touched.'**
+  String reclaimConfirmBody(int count);
+
+  /// No description provided for @reclaimConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reclaim'**
+  String get reclaimConfirmAction;
+
+  /// No description provided for @confirmOkAction.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get confirmOkAction;
 }
 
 class _AppLocalizationsDelegate

@@ -267,4 +267,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String resultOnSources(String sources) {
     return 'on $sources';
   }
+
+  @override
+  String get reclaimTooltip =>
+      'Delete stored files no model in the library refers to';
+
+  @override
+  String get refreshTooltip => 'Re-read the store and the tool directories';
+
+  @override
+  String reclaimConfirmTitle(String size) {
+    return 'Reclaim $size?';
+  }
+
+  @override
+  String reclaimConfirmBody(int count) {
+    return '$count stored file(s) are no longer referred to by any model in the library. Models installed in your tools are not touched.';
+  }
+
+  @override
+  String get reclaimConfirmAction => 'Reclaim';
+
+  @override
+  String get confirmOkAction => 'OK';
 }
