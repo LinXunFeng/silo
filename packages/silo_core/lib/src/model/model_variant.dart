@@ -137,13 +137,36 @@ List<ModelVariant> _groupSafetensors(
   List<RemoteFile> all,
   String? repoName,
 ) {
-  final parts = List<RemoteFile>.of(weights)
-    ..sort((a, b) => _shardIndex(a.name).compareTo(_shardIndex(b.name)));
+  // A repository can hold weights that are not part of the main tensor set —
+  // a vision tower, an MTP head — sitting beside a properly sharded model.
+  // They are needed to load it, but they are not shards of it, and treating
+  // them as such makes a complete `-of-00004` set look like six broken pieces.
+  final sharded = <String, List<RemoteFile>>{};
+  final standalone = <RemoteFile>[];
+  for (final file in weights) {
+    final match = _shardPattern.firstMatch(file.name);
+    if (match == null) {
+      standalone.add(file);
+    } else {
+      sharded.putIfAbsent(match.namedGroup('stem')!, () => <RemoteFile>[])
+          .add(file);
+    }
+  }
 
-  // Everything that is not a weight shard travels with them. These are the
-  // config, tokenizer and index files, and the model does not load without
-  // them — so unlike GGUF, they are part of the variant rather than optional.
-  final companions = all.where((f) => !f.isSafetensors).toList()
+  // The main model is the biggest weight set; anything else rides along.
+  final groups = <List<RemoteFile>>[
+    ...sharded.values,
+    for (final file in standalone) <RemoteFile>[file],
+  ]..sort((a, b) => _totalSize(b).compareTo(_totalSize(a)));
+
+  final parts = List<RemoteFile>.of(groups.first)
+    ..sort((a, b) => _shardIndex(a.name).compareTo(_shardIndex(b.name)));
+  final partPaths = parts.map((f) => f.path).toSet();
+
+  // Everything else travels with them: the auxiliary weights above, plus the
+  // config, tokenizer and index files. Unlike a GGUF projector these are not
+  // optional — the directory does not load without them.
+  final companions = all.where((f) => !partPaths.contains(f.path)).toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 
   return <ModelVariant>[
@@ -156,6 +179,9 @@ List<ModelVariant> _groupSafetensors(
     ),
   ];
 }
+
+int _totalSize(List<RemoteFile> files) =>
+    files.fold<int>(0, (sum, f) => sum + f.size);
 
 /// Strips the shard suffix so all shards of one model share a key.
 String _variantKey(String fileName) {
@@ -186,19 +212,23 @@ String? _quantizationOf(String variantKey) {
 /// this is checked before anything is handed to a tool.
 bool isShardSetComplete(List<RemoteFile> files) {
   if (files.isEmpty) return false;
-  final match = _shardPattern.firstMatch(files.first.name);
-  if (match == null) return files.length == 1;
 
-  final int expected = int.parse(match.namedGroup('total')!);
-  if (files.length != expected) return false;
-
-  final seen = <int>{};
-  for (final f in files) {
-    final m = _shardPattern.firstMatch(f.name);
-    if (m == null) return false;
-    if (int.parse(m.namedGroup('total')!) != expected) return false;
-    seen.add(int.parse(m.namedGroup('index')!));
+  // Only shard-named files can be incomplete. Anything else in the list is a
+  // whole file in its own right and has no set to be missing from.
+  final shards = <RegExpMatch>[];
+  for (final file in files) {
+    final match = _shardPattern.firstMatch(file.name);
+    if (match != null) shards.add(match);
   }
+  if (shards.isEmpty) return true;
+
+  final int expected = int.parse(shards.first.namedGroup('total')!);
+  final seen = <int>{};
+  for (final match in shards) {
+    if (int.parse(match.namedGroup('total')!) != expected) return false;
+    seen.add(int.parse(match.namedGroup('index')!));
+  }
+  if (seen.length != expected) return false;
   for (var i = 1; i <= expected; i++) {
     if (!seen.contains(i)) return false;
   }

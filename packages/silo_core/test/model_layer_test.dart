@@ -390,4 +390,113 @@ void main() {
     });
   });
 
+
+  group('safetensors with auxiliary weights', () {
+    // The shape of PocketAiHub/Qwen3.8-27B-Abliterated-MTPLX-Optimized-Speed:
+    // a properly sharded main model beside a vision tower and an MTP head.
+    List<RemoteFile> mtpRepo() => <RemoteFile>[
+          f('model-00001-of-00004.safetensors', size: 5106),
+          f('model-00002-of-00004.safetensors', size: 5079),
+          f('model-00003-of-00004.safetensors', size: 5113),
+          f('model-00004-of-00004.safetensors', size: 3317),
+          f('model-vision.safetensors', size: 878),
+          f('mtp.safetensors', size: 810),
+          f('model.safetensors.index.json', size: 1),
+          f('config.json', size: 1),
+          f('tokenizer.json', size: 19),
+        ];
+
+    test('counts only the real shards as parts', () {
+      final v = groupVariants(mtpRepo(), repoName: 'Repo').single;
+
+      expect(v.parts, hasLength(4));
+      expect(v.parts.map((p) => p.name), <String>[
+        'model-00001-of-00004.safetensors',
+        'model-00002-of-00004.safetensors',
+        'model-00003-of-00004.safetensors',
+        'model-00004-of-00004.safetensors',
+      ]);
+    });
+
+    test('keeps the auxiliary weights as companions, not shards', () {
+      final v = groupVariants(mtpRepo(), repoName: 'Repo').single;
+
+      expect(
+        v.companions.map((c) => c.name),
+        containsAll(<String>['model-vision.safetensors', 'mtp.safetensors']),
+      );
+      // Still downloaded — the model will not load without them.
+      expect(v.allFiles, hasLength(9));
+    });
+
+    test('the shard set reads as complete', () {
+      final v = groupVariants(mtpRepo(), repoName: 'Repo').single;
+      expect(isShardSetComplete(v.parts), isTrue);
+    });
+
+    test('picks the largest weight set when several are sharded', () {
+      final v = groupVariants(<RemoteFile>[
+        f('model-00001-of-00002.safetensors', size: 5000),
+        f('model-00002-of-00002.safetensors', size: 5000),
+        f('draft-00001-of-00002.safetensors', size: 100),
+        f('draft-00002-of-00002.safetensors', size: 100),
+        f('config.json', size: 1),
+      ], repoName: 'Repo').single;
+
+      expect(v.parts.map((p) => p.name),
+          everyElement(startsWith('model-')));
+      expect(v.companions.map((c) => c.name),
+          containsAll(<String>[
+            'draft-00001-of-00002.safetensors',
+            'draft-00002-of-00002.safetensors',
+          ]));
+    });
+  });
+
+  group('isShardSetComplete tolerance', () {
+    test('ignores files that are not shards at all', () {
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('model-00001-of-00002.safetensors'),
+          f('model-00002-of-00002.safetensors'),
+          f('model-vision.safetensors'),
+        ]),
+        isTrue,
+        reason: 'a standalone weight has no set to be missing from',
+      );
+    });
+
+    test('a list with no shards at all is complete', () {
+      expect(isShardSetComplete(<RemoteFile>[f('model.safetensors')]), isTrue);
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('a.safetensors'),
+          f('b.safetensors'),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('still catches a genuinely missing shard', () {
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('model-00001-of-00003.safetensors'),
+          f('model-00003-of-00003.safetensors'),
+          f('model-vision.safetensors'),
+        ]),
+        isFalse,
+      );
+    });
+
+    test('still catches shards from mismatched sets', () {
+      expect(
+        isShardSetComplete(<RemoteFile>[
+          f('model-00001-of-00002.safetensors'),
+          f('model-00002-of-00004.safetensors'),
+        ]),
+        isFalse,
+      );
+    });
+  });
+
 }
