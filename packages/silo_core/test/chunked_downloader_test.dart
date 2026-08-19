@@ -32,6 +32,16 @@ class FakeOrigin {
   /// Corrupt one byte of every response, to exercise checksum failure.
   bool corrupt = false;
 
+  /// Answer with a gzip-encoded body regardless of Accept-Encoding, the way
+  /// HuggingFace does for small non-LFS files.
+  bool alwaysGzip = false;
+
+  /// Refuse ranges and serve fewer bytes than the caller was told to expect.
+  bool serveShort = false;
+
+  /// Accept-Encoding of the last request, so tests can assert what was asked.
+  String? lastAcceptEncoding;
+
   /// Number of range requests served, for asserting real parallelism/resume.
   int rangeRequests = 0;
 
@@ -48,6 +58,7 @@ class FakeOrigin {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    lastAcceptEncoding = request.headers.value(HttpHeaders.acceptEncodingHeader);
 
     if (request.method == 'HEAD' && rejectHead) {
       response.statusCode = HttpStatus.notFound;
@@ -68,12 +79,23 @@ class FakeOrigin {
     }
 
     final String? range = request.headers.value(HttpHeaders.rangeHeader);
-    if (range == null || !supportsRanges) {
+    if (range == null || !supportsRanges || alwaysGzip || serveShort) {
       response.statusCode = HttpStatus.ok;
-      response.headers.contentLength = body.length;
-      response.headers.set(HttpHeaders.acceptRangesHeader,
-          supportsRanges ? 'bytes' : 'none');
-      response.add(body);
+      response.headers.set(HttpHeaders.acceptRangesHeader, 'none');
+
+      if (alwaysGzip) {
+        final List<int> squeezed = gzip.encode(body);
+        response.headers.set(HttpHeaders.contentEncodingHeader, 'gzip');
+        response.headers.contentLength = squeezed.length;
+        response.add(squeezed);
+      } else if (serveShort) {
+        final short = Uint8List.sublistView(body, 0, body.length ~/ 2);
+        response.headers.contentLength = short.length;
+        response.add(short);
+      } else {
+        response.headers.contentLength = body.length;
+        response.add(body);
+      }
       await response.close();
       return;
     }
@@ -453,4 +475,78 @@ void main() {
     expect(seen.last.total, origin.body.length);
     expect(seen.last.fraction, 1.0);
   });
+
+  group('bodies that are not the file', () {
+    test('asks for identity encoding on every download request', () async {
+      final origin = FakeOrigin(randomBytes(128 * 1024));
+      await origin.start();
+      addTearDown(origin.stop);
+
+      await downloader.downloadToFile(
+        url: origin.url,
+        target: File('${dir.path}/model.gguf'),
+        options: const DownloadOptions(connections: 2, targetChunkSize: 32 * 1024),
+      );
+
+      expect(origin.lastAcceptEncoding, 'identity');
+    });
+
+    test('refuses a gzipped body instead of storing it compressed', () async {
+      // HuggingFace compresses small non-LFS files — the config and tokenizer
+      // JSON a model will not load without. Stored as-is they are gzip bytes
+      // with a .json name, and the tool that reads them fails, not us.
+      final origin = FakeOrigin(randomBytes(64 * 1024))..alwaysGzip = true;
+      await origin.start();
+      addTearDown(origin.stop);
+
+      final target = File('${dir.path}/config.json');
+      await expectLater(
+        downloader.downloadToFile(
+          url: origin.url,
+          target: target,
+          expectedSize: origin.body.length,
+          options: const DownloadOptions(connections: 1),
+        ),
+        throwsA(isA<DownloadException>()),
+      );
+    });
+
+    test('catches a short file even with no digest to check against', () async {
+      // Non-LFS files publish no SHA-256, so the declared size is the only
+      // evidence available. Skipping the check on the single-stream path is
+      // what let compressed files through silently.
+      final origin = FakeOrigin(randomBytes(64 * 1024))..serveShort = true;
+      await origin.start();
+      addTearDown(origin.stop);
+
+      await expectLater(
+        downloader.downloadToFile(
+          url: origin.url,
+          target: File('${dir.path}/config.json'),
+          expectedSize: origin.body.length,
+          options: const DownloadOptions(connections: 1),
+        ),
+        throwsA(isA<DownloadException>()),
+      );
+    });
+
+    test('a single-stream download of the right length still succeeds', () async {
+      final origin = FakeOrigin(randomBytes(64 * 1024))..supportsRanges = false;
+      await origin.start();
+      addTearDown(origin.stop);
+
+      final target = File('${dir.path}/config.json');
+      final outcome = await downloader.downloadToFile(
+        url: origin.url,
+        target: target,
+        expectedSize: origin.body.length,
+        expectedSha256: origin.digest,
+        options: const DownloadOptions(connections: 1),
+      );
+
+      expect(outcome, DownloadOutcome.completed);
+      expect(await target.length(), origin.body.length);
+    });
+  });
+
 }

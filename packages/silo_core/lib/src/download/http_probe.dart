@@ -66,6 +66,10 @@ Future<RemoteFileProbe> probeRemoteFile(
     // A range of 0-0 keeps the probe to a single byte on servers that honour
     // it, and degrades to a normal GET (which we abort) on servers that do not.
     request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
+    // Never negotiate compression on a download path. The client runs with
+    // autoUncompress off so that byte offsets stay meaningful, which means a
+    // compressed response would be written to disk still compressed.
+    request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
     headers.forEach(request.headers.set);
 
     final HttpClientResponse response = await request.close().timeout(timeout);

@@ -114,6 +114,15 @@ error message.
   runs with `autoUncompress = false` — which then breaks JSON listings, because
   HuggingFace gzips its tree API and ModelScope does not. The source layer
   inflates listing bodies itself.
+- **Downloads must ask for `identity` on every redirect hop.** HuggingFace gzips
+  small non-LFS files — the config and tokenizer JSON — and `followRedirects`
+  cannot carry the header: Dart builds a fresh request per hop and restores its
+  own `Accept-Encoding: gzip`, so the response that returns the body arrives
+  compressed and lands on disk that way. The download path follows redirects by
+  hand for that reason alone.
+- **Non-LFS files publish no digest**, so the declared size is the only evidence
+  that what arrived is what was meant. It is checked on every path, including
+  the single-stream fallback.
 - **Both hubs publish the same SHA-256** for the same file, which is what makes
   failing over mid-download between mirrors safe.
 - **HuggingFace's top-level `oid` is a git SHA-1**, not a content hash. Only

@@ -414,15 +414,9 @@ class _DownloadJob {
 
     _active++;
     try {
-      // Chunk requests follow redirects: HuggingFace hands out presigned CDN
-      // URLs that expire, so each attempt re-resolves from the stable URL.
-      final request = await client.getUrl(url).timeout(options.timeout);
-      request.followRedirects = true;
-      request.maxRedirects = 8;
-      request.headers.set(HttpHeaders.rangeHeader, 'bytes=$start-$end');
-      options.headers.forEach(request.headers.set);
-
-      final response = await request.close().timeout(options.timeout);
+      // Each attempt re-resolves from the stable URL: HuggingFace hands out
+      // presigned CDN links that expire.
+      final response = await _openForDownload(range: 'bytes=$start-$end');
       if (response.statusCode != HttpStatus.partialContent) {
         await response.drain<void>();
         throw DownloadException(
@@ -459,13 +453,66 @@ class _DownloadJob {
     }
   }
 
+  /// Opens a GET, following redirects by hand.
+  ///
+  /// `followRedirects` cannot be used here: Dart builds a fresh request for
+  /// each hop and restores its own default `Accept-Encoding: gzip`, so a header
+  /// set on the first request is gone by the time the one that returns the body
+  /// is sent. HuggingFace redirects even small files, and answers the final hop
+  /// compressed — which, with autoUncompress off, lands on disk as gzip.
+  Future<HttpClientResponse> _openForDownload({String? range}) async {
+    var current = url;
+    for (var hop = 0; hop <= 8; hop++) {
+      final request = await client.getUrl(current).timeout(options.timeout);
+      request.followRedirects = false;
+      if (range != null) {
+        request.headers.set(HttpHeaders.rangeHeader, range);
+      }
+      request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+      options.headers.forEach(request.headers.set);
+
+      final response = await request.close().timeout(options.timeout);
+      final int status = response.statusCode;
+      if (status < 300 || status >= 400) {
+        _rejectEncodedResponse(response);
+        return response;
+      }
+
+      final String? location =
+          response.headers.value(HttpHeaders.locationHeader);
+      await response.drain<void>();
+      if (location == null) {
+        throw DownloadException('redirect without Location',
+            uri: current, statusCode: status);
+      }
+      current = current.resolve(location);
+    }
+    throw DownloadException('too many redirects', uri: url);
+  }
+
+  /// Refuses a response whose body is not the file's own bytes.
+  ///
+  /// Asking for `identity` is not a guarantee — a server may compress anyway.
+  /// Writing those bytes would produce a file that is the right length for the
+  /// wire and the wrong content on disk, and for a source that publishes no
+  /// digest nothing downstream would ever notice. Better to fail here.
+  void _rejectEncodedResponse(HttpClientResponse response) {
+    final String encoding =
+        (response.headers.value(HttpHeaders.contentEncodingHeader) ?? '')
+            .trim()
+            .toLowerCase();
+    if (encoding.isEmpty || encoding == 'identity') return;
+    throw DownloadException(
+      'server sent a $encoding-encoded body; refusing to store transformed '
+      'bytes as the file',
+      uri: url,
+    );
+  }
+
   /// Fallback for servers that will not do ranges: one stream, no resume.
   Future<DownloadOutcome> _runSingleStream(String? digest) async {
     _startTicker();
-    final request = await client.getUrl(url).timeout(options.timeout);
-    request.followRedirects = true;
-    options.headers.forEach(request.headers.set);
-    final response = await request.close().timeout(options.timeout);
+    final response = await _openForDownload();
     if (response.statusCode != HttpStatus.ok) {
       await response.drain<void>();
       throw DownloadException('unexpected status',
@@ -487,11 +534,15 @@ class _DownloadJob {
     }
 
     if (_stopRequested != null) return _stopRequested!;
-    return _finalize(digest, sizeUnknown: true);
+    return _finalize(digest);
   }
 
-  Future<DownloadOutcome> _finalize(String? digest, {bool sizeUnknown = false}) async {
-    final int? expected = sizeUnknown ? null : _part?.size;
+  Future<DownloadOutcome> _finalize(String? digest) async {
+    // Checked on every path, including the single-stream fallback. A file that
+    // arrives shorter than the source said is the only signal available when
+    // the source publishes no digest — which is exactly the case for the small
+    // config and tokenizer files a model will not load without.
+    final int? expected = _part?.size ?? expectedSize;
     if (expected != null) {
       final int actual = await target.length();
       if (actual != expected) {
