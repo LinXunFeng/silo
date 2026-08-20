@@ -582,6 +582,18 @@ class SiloLibrary {
       final InstallResult result = await target.install(entry.ref, files, store);
       results.add(result);
 
+      // Linking converges the directory on what should be there. A file this
+      // library placed earlier and no longer wants — because the target has
+      // since learned to leave it out — is removed, so an install that was
+      // already wrong repairs itself on the next link rather than staying
+      // broken until someone deletes it by hand.
+      await _removeStaleLinks(
+        catalog: catalog,
+        entryKey: entry.key,
+        targetId: target.id,
+        keepPaths: result.links.map((l) => l.path).toSet(),
+      );
+
       catalog.recordLinks(<LinkRecord>[
         for (final l in result.links)
           LinkRecord(
@@ -651,6 +663,41 @@ class SiloLibrary {
     final Set<String> referenced = catalog.referencedBlobs();
     final List<String> present = await store.listBlobs();
     return present.where((sha256) => !referenced.contains(sha256)).toList();
+  }
+
+  /// Deletes files recorded for this entry and target that are no longer
+  /// wanted, using the same "is it still ours" check as [unlink].
+  Future<void> _removeStaleLinks({
+    required Catalog catalog,
+    required String entryKey,
+    required String targetId,
+    required Set<String> keepPaths,
+  }) async {
+    final stale = catalog
+        .linksFor(entryKey)
+        .where((link) => link.targetId == targetId)
+        .where((link) => !keepPaths.contains(link.path))
+        .toList();
+    if (stale.isEmpty) return;
+
+    final removed = <String>[];
+    for (final link in stale) {
+      final file = File(link.path);
+      if (!await file.exists()) {
+        removed.add(link.path);
+        continue;
+      }
+      if (!await _isOursToDelete(link: link, file: file)) continue;
+      await file.delete();
+      removed.add(link.path);
+    }
+
+    catalog.links.removeWhere(
+      (link) => link.entryKey == entryKey &&
+          link.targetId == targetId &&
+          removed.contains(link.path),
+    );
+    await _pruneEmptyDirectories(paths: removed);
   }
 
   /// Removes a variant's files from tools it was linked into.

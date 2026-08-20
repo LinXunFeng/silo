@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import '../model/model_ref.dart';
+import '../store/blob_store.dart';
 import 'download_target.dart';
 
 /// LM Studio.
@@ -48,6 +50,75 @@ class LmStudioTarget extends DownloadTarget {
     final int slash = fileName.lastIndexOf('/');
     final String leaf = slash < 0 ? fileName : fileName.substring(slash + 1);
     return '${ref.author}/${ref.repo}/$leaf';
+  }
+
+  /// Drops weight files the model's own index does not claim.
+  ///
+  /// LM Studio's MLX backend loads every `*.safetensors` in the directory and
+  /// merges them, ignoring `model.safetensors.index.json` — it special-cases
+  /// exactly one name, `consolidated.safetensors`. So a repository that ships
+  /// an extra weight artifact for a custom runtime (an MTP head, a draft model)
+  /// makes the whole model fail to load with "Received N parameters not in
+  /// model", even though every byte is correct.
+  ///
+  /// The index is the model's own statement of what it is made of. Anything
+  /// with a `.safetensors` name that it does not list is not part of this
+  /// model, so it does not go in the directory — it stays in the store, where
+  /// nothing reads it by accident.
+  ///
+  /// Repositories without an index are left alone: with no manifest there is
+  /// nothing to check against, and guessing would be worse than doing nothing.
+  @override
+  Future<List<TargetFile>> selectFiles(
+    List<TargetFile> files,
+    BlobStore store,
+  ) async {
+    const indexName = 'model.safetensors.index.json';
+    TargetFile? indexFile;
+    for (final file in files) {
+      if (file.relativePath.endsWith(indexName)) indexFile = file;
+    }
+    if (indexFile == null) return files;
+
+    final Set<String>? indexed =
+        await _indexedWeightFiles(index: indexFile, store: store);
+    if (indexed == null) return files;
+
+    return files.where((file) {
+      final String name = _leafOf(file.relativePath);
+      if (!name.toLowerCase().endsWith('.safetensors')) return true;
+      return indexed.contains(name);
+    }).toList();
+  }
+
+  /// The weight files named by the index, or null when it cannot be read.
+  Future<Set<String>?> _indexedWeightFiles({
+    required TargetFile index,
+    required BlobStore store,
+  }) async {
+    try {
+      final File blob = store.blobFile(index.sha256);
+      if (!await blob.exists()) return null;
+      final Object? decoded = jsonDecode(await blob.readAsString());
+      if (decoded is! Map<String, Object?>) return null;
+      final Object? weightMap = decoded['weight_map'];
+      if (weightMap is! Map) return null;
+
+      final names = <String>{};
+      for (final Object? value in weightMap.values) {
+        if (value is String) names.add(_leafOf(value));
+      }
+      return names.isEmpty ? null : names;
+    } on FormatException {
+      return null;
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  String _leafOf(String path) {
+    final int slash = path.lastIndexOf('/');
+    return slash < 0 ? path : path.substring(slash + 1);
   }
 
   /// Scans for models already installed, so Silo can mark them as present

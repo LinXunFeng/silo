@@ -123,6 +123,12 @@ error message.
 - **Non-LFS files publish no digest**, so the declared size is the only evidence
   that what arrived is what was meant. It is checked on every path, including
   the single-stream fallback.
+- **LM Studio's MLX backend globs `*.safetensors` and merges them,** ignoring
+  `model.safetensors.index.json` and special-casing exactly one name. A repo
+  that ships an extra weight artifact for a custom runtime — an MTP head, a
+  draft model — makes the whole thing fail to load with "Received N parameters
+  not in model". The store keeps everything; the LM Studio target installs only
+  what the index claims.
 - **Both hubs publish the same SHA-256** for the same file, which is what makes
   failing over mid-download between mirrors safe.
 - **HuggingFace's top-level `oid` is a git SHA-1**, not a content hash. Only

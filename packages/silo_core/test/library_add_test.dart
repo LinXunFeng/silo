@@ -354,4 +354,112 @@ void main() {
     });
   });
 
+
+  group('unindexed weight files', () {
+    /// A repository shaped like an MTP build: an indexed model beside an extra
+    /// weight artifact meant for a custom runtime.
+    Future<void> serveMtpRepo() async {
+      hub.files.clear();
+      hub.files['model-00001-of-00002.safetensors'] = bytes(4096, 30);
+      hub.files['model-00002-of-00002.safetensors'] = bytes(4096, 31);
+      hub.files['model-vision.safetensors'] = bytes(2048, 32);
+      hub.files['mtp.safetensors'] = bytes(1024, 33);
+      hub.files['config.json'] = bytes(128, 34);
+      hub.files['model.safetensors.index.json'] = Uint8List.fromList(
+        utf8.encode(jsonEncode(<String, Object?>{
+          'metadata': <String, Object?>{'total_size': 10240},
+          'weight_map': <String, Object?>{
+            'a': 'model-00001-of-00002.safetensors',
+            'b': 'model-00002-of-00002.safetensors',
+            'v': 'model-vision.safetensors',
+          },
+        })),
+      );
+    }
+
+    Future<Directory> install() async {
+      await serveMtpRepo();
+      await library.add(ref, probeSourceSpeed: false);
+      await library.link(ref, targetIds: <String>['lmstudio']);
+      return Directory('${target.root.path}/acme/Demo-MLX-8bit');
+    }
+
+    test('keeps every file in the store', () async {
+      await install();
+      // The library is a mirror; completeness is the point.
+      expect(await store.listBlobs(), hasLength(6));
+      final entry = (await library.readCatalog()).entries.single;
+      expect(entry.files.map((f) => f.name), contains('mtp.safetensors'));
+    });
+
+    test('does not place a weight file the index does not claim', () async {
+      final dir = await install();
+      final names = await dir.list().map((e) => e.uri.pathSegments.last).toList();
+
+      // LM Studio's MLX backend globs *.safetensors and merges them, so an
+      // unclaimed one makes the whole model fail to load.
+      expect(names, isNot(contains('mtp.safetensors')));
+      expect(
+        names,
+        containsAll(<String>[
+          'model-00001-of-00002.safetensors',
+          'model-00002-of-00002.safetensors',
+          'model-vision.safetensors',
+          'config.json',
+          'model.safetensors.index.json',
+        ]),
+      );
+    });
+
+    test('re-linking removes a file placed before the rule existed', () async {
+      final dir = await install();
+
+      // Simulate the older behaviour: put the unclaimed weight in place and
+      // record it the way an earlier link would have.
+      final entry = (await library.readCatalog()).entries.single;
+      final mtp = entry.files.firstWhere((f) => f.name == 'mtp.safetensors');
+      final planted = File('${dir.path}/mtp.safetensors');
+      await store.linkTo(mtp.sha256, planted);
+      final catalog = await library.readCatalog();
+      catalog.recordLinks(<LinkRecord>[
+        LinkRecord(
+          entryKey: entry.key,
+          targetId: 'lmstudio',
+          sha256: mtp.sha256,
+          path: planted.path,
+          hardLinked: true,
+        ),
+      ]);
+      await catalog.write(library.catalogFile);
+      expect(planted.existsSync(), isTrue);
+
+      await library.link(ref, targetIds: <String>['lmstudio']);
+
+      expect(planted.existsSync(), isFalse, reason: 'linking converges');
+      expect(
+        (await library.readCatalog())
+            .links
+            .any((l) => l.path == planted.path),
+        isFalse,
+      );
+      // The blob stays: the store still holds what the repository published.
+      expect(await store.has(mtp.sha256), isTrue);
+    });
+
+    test('a repository with no index is left completely alone', () async {
+      hub.files.clear();
+      hub.files['model.safetensors'] = bytes(4096, 40);
+      hub.files['extra.safetensors'] = bytes(1024, 41);
+      hub.files['config.json'] = bytes(128, 42);
+
+      await library.add(ref, probeSourceSpeed: false);
+      await library.link(ref, targetIds: <String>['lmstudio']);
+
+      final dir = Directory('${target.root.path}/acme/Demo-MLX-8bit');
+      final names = await dir.list().map((e) => e.uri.pathSegments.last).toList();
+      expect(names, contains('extra.safetensors'),
+          reason: 'no manifest means nothing to check against');
+    });
+  });
+
 }

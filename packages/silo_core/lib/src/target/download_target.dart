@@ -59,6 +59,18 @@ abstract class DownloadTarget {
   /// Path, relative to [root], where [fileName] from [ref] must live.
   String relativePathFor(ModelRef ref, String fileName);
 
+  /// Narrows a variant's files to the ones this tool should actually receive.
+  ///
+  /// The store keeps everything a repository publishes, because it is a library
+  /// and completeness is the point. A target may still need less: a tool can
+  /// choke on a file it was never meant to read, and it is the target that
+  /// knows which. Defaults to installing everything.
+  Future<List<TargetFile>> selectFiles(
+    List<TargetFile> files,
+    BlobStore store,
+  ) async =>
+      files;
+
   /// Puts every file of a variant in place, hard-linking from [store].
   Future<InstallResult> install(
     ModelRef ref,
@@ -66,8 +78,9 @@ abstract class DownloadTarget {
     BlobStore store, {
     bool overwrite = true,
   }) async {
+    final wanted = await selectFiles(files, store);
     final links = <LinkResult>[];
-    for (final file in files) {
+    for (final file in wanted) {
       final String relative = relativePathFor(ref, file.relativePath);
       final destination = File('${root.path}/$relative');
       links.add(await store.linkTo(
