@@ -44,12 +44,18 @@ class LmStudioTarget extends DownloadTarget {
   }
 
   @override
-  String relativePathFor(ModelRef ref, String fileName) {
+  String relativePathFor(ModelRef ref, String fileName, {String directory = ''}) {
     // Flatten any nested repo path: LM Studio wants the file directly under
     // {author}/{repo}, not at whatever depth the hub happened to store it.
-    final int slash = fileName.lastIndexOf('/');
-    final String leaf = slash < 0 ? fileName : fileName.substring(slash + 1);
-    return '${ref.author}/${ref.repo}/$leaf';
+    final String leaf = _leafOf(fileName);
+
+    // A repository publishing 2-bit/, 4-bit/ and 8-bit/ would otherwise have
+    // all three collapse onto the same filenames in one folder, each
+    // overwriting the last. Folding the subdirectory into the repo name keeps
+    // the depth LM Studio requires while letting them coexist.
+    final String repo =
+        directory.isEmpty ? ref.repo : '${ref.repo}-${directory.replaceAll('/', '-')}';
+    return '${ref.author}/$repo/$leaf';
   }
 
   /// Drops weight files the model's own index does not claim.

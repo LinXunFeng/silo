@@ -317,4 +317,84 @@ void main() {
       expect(await linkCountOf(blob.path), 2);
     });
   });
+
+  group('quantisation folders in one repository', () {
+    late LmStudioTarget target;
+
+    setUp(() {
+      target = LmStudioTarget(root: Directory('${tmp.path}/.lmstudio/models'));
+    });
+
+    test('a root variant keeps the plain repository path', () {
+      expect(
+        target.relativePathFor(
+          const ModelRef('acme', 'Model-MLX'),
+          'model.safetensors',
+        ),
+        'acme/Model-MLX/model.safetensors',
+      );
+    });
+
+    test('a folder variant gets its own directory', () {
+      expect(
+        target.relativePathFor(
+          const ModelRef('acme', 'Model-MLX'),
+          '4-bit/model.safetensors',
+          directory: '4-bit',
+        ),
+        'acme/Model-MLX-4-bit/model.safetensors',
+      );
+    });
+
+    test('two quantisations install side by side without overwriting',
+        () async {
+      const ref = ModelRef('acme', 'Model-MLX');
+      final twoBit = await stage('a', bytes(2048, 50));
+      final fourBit = await stage('b', bytes(4096, 51));
+
+      await target.install(
+        ref,
+        <TargetFile>[
+          TargetFile(sha256: twoBit, relativePath: '2-bit/model.safetensors'),
+        ],
+        store,
+        directory: '2-bit',
+      );
+      await target.install(
+        ref,
+        <TargetFile>[
+          TargetFile(sha256: fourBit, relativePath: '4-bit/model.safetensors'),
+        ],
+        store,
+        directory: '4-bit',
+      );
+
+      // Flattening without the folder would have put both at
+      // acme/Model-MLX/model.safetensors, the second erasing the first.
+      final two = File(
+        '${target.root.path}/acme/Model-MLX-2-bit/model.safetensors',
+      );
+      final four = File(
+        '${target.root.path}/acme/Model-MLX-4-bit/model.safetensors',
+      );
+      expect(await two.length(), 2048);
+      expect(await four.length(), 4096);
+    });
+
+    test('uninstall removes the right folder', () async {
+      const ref = ModelRef('acme', 'Model-MLX');
+      final digest = await stage('a', bytes(1024, 52));
+      final files = <TargetFile>[
+        TargetFile(sha256: digest, relativePath: '8-bit/model.safetensors'),
+      ];
+      await target.install(ref, files, store, directory: '8-bit');
+
+      expect(await target.uninstall(ref, files, directory: '8-bit'), 1);
+      expect(
+        Directory('${target.root.path}/acme/Model-MLX-8-bit').existsSync(),
+        isFalse,
+      );
+    });
+  });
+
 }

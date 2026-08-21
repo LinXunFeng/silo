@@ -27,6 +27,7 @@ class ModelVariant {
     required this.quantization,
     required this.parts,
     required this.companions,
+    this.directory = '',
   });
 
   /// Variant key, e.g. `qwen2.5-7b-instruct-q4_k_m`, or the repository name for
@@ -34,6 +35,14 @@ class ModelVariant {
   final String name;
 
   final ModelFormat format;
+
+  /// Repository subdirectory this variant lives in, or empty for the root.
+  ///
+  /// Safetensors repositories often ship several quantisations as sibling
+  /// folders — `2-bit/`, `4-bit/`, `8-bit/`. Each is a whole model; which one
+  /// you want is the choice, and merging them would claim the repository is
+  /// four times its real size and download all of it.
+  final String directory;
 
   /// The quantisation tag parsed out of the name, e.g. `Q4_K_M`, or null when
   /// the filename does not follow the convention.
@@ -137,6 +146,38 @@ List<ModelVariant> _groupSafetensors(
   List<RemoteFile> all,
   String? repoName,
 ) {
+  // One variant per directory holding weights. A repository that publishes
+  // 2-bit/, 4-bit/ and 8-bit/ side by side is offering three models, not one
+  // enormous one.
+  final dirs = <String>{for (final file in weights) _directoryOf(file.path)};
+
+  final variants = <ModelVariant>[
+    for (final dir in dirs)
+      _safetensorsVariantIn(
+        directory: dir,
+        weights: weights.where((f) => _directoryOf(f.path) == dir).toList(),
+        all: all,
+        repoName: repoName,
+      ),
+  ];
+
+  // Root first, then by name, so the plain repository reads before its
+  // per-quantisation folders.
+  variants.sort((a, b) {
+    if (a.directory.isEmpty != b.directory.isEmpty) {
+      return a.directory.isEmpty ? -1 : 1;
+    }
+    return a.name.compareTo(b.name);
+  });
+  return variants;
+}
+
+ModelVariant _safetensorsVariantIn({
+  required String directory,
+  required List<RemoteFile> weights,
+  required List<RemoteFile> all,
+  required String? repoName,
+}) {
   // A repository can hold weights that are not part of the main tensor set —
   // a vision tower, an MTP head — sitting beside a properly sharded model.
   // They are needed to load it, but they are not shards of it, and treating
@@ -163,21 +204,47 @@ List<ModelVariant> _groupSafetensors(
     ..sort((a, b) => _shardIndex(a.name).compareTo(_shardIndex(b.name)));
   final partPaths = parts.map((f) => f.path).toSet();
 
-  // Everything else travels with them: the auxiliary weights above, plus the
-  // config, tokenizer and index files. Unlike a GGUF projector these are not
-  // optional — the directory does not load without them.
-  final companions = all.where((f) => !partPaths.contains(f.path)).toList()
+  // Companions come from this directory, falling back to the repository root
+  // for anything it does not provide.
+  //
+  // The folder always wins. A quantisation folder ships its own config.json
+  // and shard index, and those describe *that* quantisation — taking the root
+  // copy as well would put two files with one name into a flat target
+  // directory, and the loader would read whichever landed last.
+  final byLeaf = <String, RemoteFile>{};
+  for (final file in all) {
+    if (partPaths.contains(file.path)) continue;
+    final String dir = _directoryOf(file.path);
+    final bool own = dir == directory;
+    final bool inheritedFromRoot =
+        directory.isNotEmpty && dir.isEmpty && !file.isSafetensors;
+    if (!own && !inheritedFromRoot) continue;
+
+    final String leaf = file.name;
+    if (own || !byLeaf.containsKey(leaf)) {
+      // `own` overwrites an inherited entry; inherited never overwrites `own`.
+      if (own || _directoryOf(byLeaf[leaf]?.path ?? '') != directory) {
+        byLeaf[leaf] = file;
+      }
+    }
+  }
+  final companions = byLeaf.values.toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 
-  return <ModelVariant>[
-    ModelVariant(
-      name: repoName ?? _variantKey(parts.first.name),
-      format: ModelFormat.safetensors,
-      quantization: _quantizationOf(repoName ?? ''),
-      parts: parts,
-      companions: companions,
-    ),
-  ];
+  final String base = repoName ?? _variantKey(parts.first.name);
+  return ModelVariant(
+    name: directory.isEmpty ? base : '$base-$directory',
+    format: ModelFormat.safetensors,
+    quantization: _quantizationOf(directory.isEmpty ? base : directory),
+    parts: parts,
+    companions: companions,
+    directory: directory,
+  );
+}
+
+String _directoryOf(String path) {
+  final int slash = path.lastIndexOf('/');
+  return slash < 0 ? '' : path.substring(0, slash);
 }
 
 int _totalSize(List<RemoteFile> files) =>

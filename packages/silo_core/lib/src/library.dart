@@ -391,6 +391,7 @@ class SiloLibrary {
             variant: variant.name,
             sourceId: usedSourceId,
             revision: primary.listing.revision,
+            directory: variant.directory,
             addedAt: DateTime.now(),
             files: catalogFiles,
           ),
@@ -424,6 +425,7 @@ class SiloLibrary {
       variant: variant.name,
       sourceId: usedSourceId,
       revision: usedSource.listing.revision,
+      directory: variant.directory,
       addedAt: DateTime.now(),
       files: catalogFiles,
     );
@@ -579,7 +581,12 @@ class SiloLibrary {
         }
       }
 
-      final InstallResult result = await target.install(entry.ref, files, store);
+      final InstallResult result = await target.install(
+        entry.ref,
+        files,
+        store,
+        directory: entry.directory,
+      );
       results.add(result);
 
       // Linking converges the directory on what should be there. A file this

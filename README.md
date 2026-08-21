@@ -148,6 +148,12 @@ error message.
   off and the model does not appear, with nothing logged to say why.
 - **Sharded models must be downloaded as a set,** and vision models need their
   `mmproj-*.gguf` companion. Both are grouped into a single selectable variant.
+- **Safetensors repos often ship several whole models as sibling folders** —
+  `2-bit/`, `4-bit/`, `8-bit/` — each with its own config and shard index.
+  They are separate variants; summing them claims the repo is four times its
+  real size. Since LM Studio wants a flat directory, the folder is folded into
+  the installed name so two quantisations can coexist, and the folder's own
+  metadata wins over the repository root's copy.
 - **`dart:io` has no hard-link API** — `Link` is `symlink(2)`. Silo shells out to
   `ln` and falls back to copying across volumes.
 - **Deleting a blob a tool still hard-links frees nothing.** The inode survives

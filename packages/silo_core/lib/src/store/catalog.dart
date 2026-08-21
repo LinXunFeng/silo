@@ -38,6 +38,7 @@ class CatalogEntry {
     required this.revision,
     required this.addedAt,
     required this.files,
+    this.directory = '',
   });
 
   final ModelRef ref;
@@ -49,6 +50,11 @@ class CatalogEntry {
   final String sourceId;
 
   final String revision;
+
+  /// Repository subdirectory this variant came from, or empty for the root.
+  /// Two quantisations of one repo must not land in the same tool folder.
+  final String directory;
+
   final DateTime addedAt;
   final List<CatalogFile> files;
 
@@ -62,6 +68,7 @@ class CatalogEntry {
         'variant': variant,
         'source': sourceId,
         'revision': revision,
+        'directory': directory,
         'addedAt': addedAt.toIso8601String(),
         'files': files.map((f) => f.toJson()).toList(),
       };
@@ -84,6 +91,7 @@ class CatalogEntry {
       variant: variant,
       sourceId: json['source'] as String? ?? 'unknown',
       revision: json['revision'] as String? ?? 'main',
+      directory: json['directory'] as String? ?? '',
       addedAt: DateTime.tryParse(json['addedAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       files: parsed,

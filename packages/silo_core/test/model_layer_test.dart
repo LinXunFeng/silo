@@ -499,4 +499,122 @@ void main() {
     });
   });
 
+
+  group('safetensors quantisation folders', () {
+    // The shape of orcarouter/Qwen3.8-27B-Uncensored-MLX: several whole models
+    // published as sibling folders, plus a copy at the root.
+    List<RemoteFile> quantRepo() => <RemoteFile>[
+          f('model.safetensors', size: 4000),
+          f('config.json', size: 2),
+          f('tokenizer.json', size: 10),
+          f('2-bit/model.safetensors', size: 1000),
+          f('2-bit/config.json', size: 2),
+          f('4-bit/model.safetensors', size: 2000),
+          f('4-bit/config.json', size: 2),
+          f('8-bit/model-00001-of-00002.safetensors', size: 3000),
+          f('8-bit/model-00002-of-00002.safetensors', size: 3000),
+          f('8-bit/config.json', size: 2),
+        ];
+
+    test('offers one variant per folder instead of one giant one', () {
+      final variants = groupVariants(quantRepo(), repoName: 'Repo');
+
+      expect(variants.map((v) => v.name), <String>[
+        'Repo',
+        'Repo-2-bit',
+        'Repo-4-bit',
+        'Repo-8-bit',
+      ]);
+      expect(variants.first.directory, '');
+      expect(variants[2].directory, '4-bit');
+    });
+
+    test('each variant is sized as itself, not as the repository', () {
+      final variants = groupVariants(quantRepo(), repoName: 'Repo');
+      final sizes = <String, int>{
+        for (final v in variants) v.name: v.totalSize,
+      };
+
+      // 4-bit is its own 2000 plus its config and the shared root metadata.
+      expect(sizes['Repo-4-bit'], lessThan(sizes['Repo']! + 2000));
+      expect(sizes['Repo-2-bit'], lessThan(sizes['Repo-4-bit']!));
+      // Nothing claims the whole repository.
+      final total = quantRepo().fold<int>(0, (sum, file) => sum + file.size);
+      for (final v in variants) {
+        expect(v.totalSize, lessThan(total));
+      }
+    });
+
+    test('a folder variant takes only its own weights', () {
+      final variants = groupVariants(quantRepo(), repoName: 'Repo');
+      final fourBit = variants.firstWhere((v) => v.directory == '4-bit');
+
+      expect(fourBit.parts.map((p) => p.path), <String>['4-bit/model.safetensors']);
+      final names = fourBit.allFiles.map((file) => file.path).toSet();
+      expect(names, isNot(contains('2-bit/model.safetensors')));
+      expect(names, isNot(contains('model.safetensors')));
+    });
+
+    test('a folder variant inherits root metadata it does not have itself', () {
+      final variants = groupVariants(quantRepo(), repoName: 'Repo');
+      final fourBit = variants.firstWhere((v) => v.directory == '4-bit');
+      final names = fourBit.allFiles.map((file) => file.path).toSet();
+
+      // The tokenizer lives at the top level and every quantisation needs it.
+      expect(names, contains('tokenizer.json'));
+      expect(names, contains('4-bit/config.json'));
+      // But not another folder's config.
+      expect(names, isNot(contains('2-bit/config.json')));
+    });
+
+    test('the folder\'s own metadata wins over the root copy', () {
+      // Every quantisation folder in a real repo ships its own config.json and
+      // shard index describing that quantisation. Taking the root copy too
+      // would put two files with one name into a flat target directory.
+      final variants = groupVariants(<RemoteFile>[
+        f('model.safetensors', size: 4000),
+        f('config.json', size: 2),
+        f('model.safetensors.index.json', size: 3),
+        f('tokenizer.json', size: 10),
+        f('4-bit/model.safetensors', size: 2000),
+        f('4-bit/config.json', size: 2),
+        f('4-bit/model.safetensors.index.json', size: 3),
+      ], repoName: 'Repo');
+
+      final fourBit = variants.firstWhere((v) => v.directory == '4-bit');
+      final paths = fourBit.allFiles.map((file) => file.path).toSet();
+
+      expect(paths, contains('4-bit/config.json'));
+      expect(paths, isNot(contains('config.json')));
+      expect(paths, contains('4-bit/model.safetensors.index.json'));
+      expect(paths, isNot(contains('model.safetensors.index.json')));
+      // Still inherits what the folder does not provide.
+      expect(paths, contains('tokenizer.json'));
+
+      // And no two files share a name, since the target flattens them.
+      final leaves = fourBit.allFiles.map((file) => file.name).toList();
+      expect(leaves.toSet(), hasLength(leaves.length));
+    });
+
+    test('shards inside a folder are grouped normally', () {
+      final variants = groupVariants(quantRepo(), repoName: 'Repo');
+      final eightBit = variants.firstWhere((v) => v.directory == '8-bit');
+
+      expect(eightBit.parts, hasLength(2));
+      expect(isShardSetComplete(eightBit.parts), isTrue);
+    });
+
+    test('a flat repository is unaffected', () {
+      final variants = groupVariants(<RemoteFile>[
+        f('model-00001-of-00002.safetensors', size: 10),
+        f('model-00002-of-00002.safetensors', size: 10),
+        f('config.json', size: 1),
+      ], repoName: 'Repo');
+
+      expect(variants, hasLength(1));
+      expect(variants.single.directory, isEmpty);
+      expect(variants.single.name, 'Repo');
+    });
+  });
+
 }

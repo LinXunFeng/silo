@@ -57,7 +57,11 @@ abstract class DownloadTarget {
   Future<bool> isPresent() => root.exists();
 
   /// Path, relative to [root], where [fileName] from [ref] must live.
-  String relativePathFor(ModelRef ref, String fileName);
+  ///
+  /// [directory] is the repository subdirectory the variant came from, empty
+  /// for the root. A target that flattens paths needs it to keep two
+  /// quantisations of one repository apart.
+  String relativePathFor(ModelRef ref, String fileName, {String directory});
 
   /// Narrows a variant's files to the ones this tool should actually receive.
   ///
@@ -77,11 +81,13 @@ abstract class DownloadTarget {
     List<TargetFile> files,
     BlobStore store, {
     bool overwrite = true,
+    String directory = '',
   }) async {
     final wanted = await selectFiles(files, store);
     final links = <LinkResult>[];
     for (final file in wanted) {
-      final String relative = relativePathFor(ref, file.relativePath);
+      final String relative =
+          relativePathFor(ref, file.relativePath, directory: directory);
       final destination = File('${root.path}/$relative');
       links.add(await store.linkTo(
         file.sha256,
@@ -94,22 +100,28 @@ abstract class DownloadTarget {
 
   /// Removes a variant's files from this target. Blobs are untouched — only
   /// `silo gc` deletes those, and only when nothing references them.
-  Future<int> uninstall(ModelRef ref, List<TargetFile> files) async {
+  Future<int> uninstall(
+    ModelRef ref,
+    List<TargetFile> files, {
+    String directory = '',
+  }) async {
     var removed = 0;
     for (final file in files) {
-      final destination =
-          File('${root.path}/${relativePathFor(ref, file.relativePath)}');
+      final destination = File('${root.path}/'
+          '${relativePathFor(ref, file.relativePath, directory: directory)}');
       if (await destination.exists()) {
         await destination.delete();
         removed++;
       }
     }
-    await _pruneEmptyDirectories(ref);
+    await _pruneEmptyDirectories(ref, directory);
     return removed;
   }
 
-  Future<void> _pruneEmptyDirectories(ModelRef ref) async {
-    var dir = Directory('${root.path}/${relativePathFor(ref, 'x')}').parent;
+  Future<void> _pruneEmptyDirectories(ModelRef ref, String directory) async {
+    var dir = Directory(
+      '${root.path}/${relativePathFor(ref, 'x', directory: directory)}',
+    ).parent;
     while (dir.path.startsWith(root.path) && dir.path != root.path) {
       try {
         if (await dir.list().isEmpty) {
