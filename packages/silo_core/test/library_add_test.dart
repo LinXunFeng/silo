@@ -462,4 +462,83 @@ void main() {
     });
   });
 
+
+  group('selecting one quantisation folder', () {
+    Future<void> serveQuantRepo() async {
+      hub.files.clear();
+      hub.files['tokenizer.json'] = bytes(64, 60);
+      hub.files['2-bit/model.safetensors'] = bytes(1024, 61);
+      hub.files['2-bit/config.json'] = bytes(16, 62);
+      hub.files['4-bit/model.safetensors'] = bytes(2048, 63);
+      hub.files['4-bit/config.json'] = bytes(16, 64);
+      hub.files['8-bit/model.safetensors'] = bytes(4096, 65);
+      hub.files['8-bit/config.json'] = bytes(16, 66);
+    }
+
+    test('a partial name like "4-bit" picks exactly that folder', () async {
+      await serveQuantRepo();
+      final result = await library.add(
+        ref,
+        variantName: '4-bit',
+        probeSourceSpeed: false,
+      );
+
+      expect(result.isComplete, isTrue);
+      expect(result.entry.variant, endsWith('4-bit'));
+      expect(result.entry.directory, '4-bit');
+      // Only that folder's weights were fetched.
+      expect(result.downloadedBytes, lessThan(4096));
+    });
+
+    test('the other quantisations are not downloaded', () async {
+      await serveQuantRepo();
+      await library.add(ref, variantName: '4-bit', probeSourceSpeed: false);
+
+      final names = (await library.readCatalog())
+          .entries
+          .single
+          .files
+          .map((f) => f.name)
+          .toList();
+      expect(names, containsAll(<String>['model.safetensors', 'config.json']));
+      // Every folder holds a file called model.safetensors, so the count is
+      // what proves only one folder came down.
+      expect(names.length, 3);
+      expect(await store.listBlobs(), hasLength(3));
+    });
+
+    test('two quantisations coexist in the store and in the tool', () async {
+      await serveQuantRepo();
+      await library.add(ref, variantName: '2-bit', probeSourceSpeed: false);
+      await library.add(ref, variantName: '8-bit', probeSourceSpeed: false);
+
+      final catalog = await library.readCatalog();
+      expect(catalog.entries, hasLength(2));
+      for (final entry in catalog.entries) {
+        await library.link(
+          ref,
+          targetIds: <String>['lmstudio'],
+          variantName: entry.variant,
+        );
+      }
+
+      final two = File(
+        '${target.root.path}/acme/Demo-MLX-8bit-2-bit/model.safetensors',
+      );
+      final eight = File(
+        '${target.root.path}/acme/Demo-MLX-8bit-8-bit/model.safetensors',
+      );
+      expect(await two.length(), 1024);
+      expect(await eight.length(), 4096);
+    });
+
+    test('an ambiguous name is rejected rather than guessed', () async {
+      await serveQuantRepo();
+      await expectLater(
+        library.add(ref, variantName: 'bit', probeSourceSpeed: false),
+        throwsArgumentError,
+      );
+    });
+  });
+
 }
