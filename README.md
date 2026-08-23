@@ -1,5 +1,9 @@
 # Silo
 
+<p align="center">
+  <img src="assets/logo.png" alt="Silo Logo" width="160" />
+</p>
+
 A local model library for macOS. **Download once, link everywhere.**
 
 Running LM Studio, Ollama and llama.cpp side by side means storing the same 7B
