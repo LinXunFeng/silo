@@ -112,7 +112,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get libraryTitle => '模型库';
 
   @override
-  String get libraryEmpty => '库里还是空的，先查找一个模型试试。';
+  String get libraryEmpty => '库里还是空的。';
 
   @override
   String librarySummary(int models, String size) {
@@ -287,4 +287,69 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get confirmOkAction => '好';
+
+  @override
+  String get discoverTitle => '发现';
+
+  @override
+  String get discoverSubtitle => '一次搜遍所有镜像，也可以直接粘贴 author/repo。';
+
+  @override
+  String get discoverEmpty => '还没查找过任何模型';
+
+  @override
+  String get discoverEmptyHint => '试试关键词（比如 qwen3 coder），或者精确的 author/repo。';
+
+  @override
+  String get librarySubtitle => '只留一份实体文件，硬链接分发给每个要用它的工具。';
+
+  @override
+  String get libraryEmptyHint => '先查找一个模型试试。';
+
+  @override
+  String get queueSubtitle => '一次只跑一个 —— 同时下两个只是在瓜分同一条带宽。';
+
+  @override
+  String get queueEmptyHint => '先查找一个模型，把它加入队列。';
+
+  @override
+  String get targetsNavTitle => '分发目标';
+
+  @override
+  String get targetsSubtitle => '下载完成后硬链接到这些工具。';
+
+  @override
+  String targetsSelected(String targets) {
+    return '将分发到 $targets';
+  }
+
+  @override
+  String get targetsNoneSelected => '未选择分发目标 —— 下载完成后只会存入库中。';
+
+  @override
+  String get statModels => '模型';
+
+  @override
+  String get statOnDisk => '实际占用';
+
+  @override
+  String get statSaved => '去重节省';
+
+  @override
+  String get statReclaimable => '可回收';
+
+  @override
+  String get appearanceAction => '外观';
+
+  @override
+  String get appearanceTooltip => '跟随 macOS，或把窗口固定为某一种外观';
+
+  @override
+  String get appearanceSystem => '跟随系统';
+
+  @override
+  String get appearanceLight => '浅色';
+
+  @override
+  String get appearanceDark => '深色';
 }

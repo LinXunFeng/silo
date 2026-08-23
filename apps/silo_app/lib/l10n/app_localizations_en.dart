@@ -112,8 +112,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryTitle => 'Library';
 
   @override
-  String get libraryEmpty =>
-      'Nothing stored yet. Look up a model to get started.';
+  String get libraryEmpty => 'Nothing stored yet.';
 
   @override
   String librarySummary(int models, String size) {
@@ -290,4 +289,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmOkAction => 'OK';
+
+  @override
+  String get discoverTitle => 'Discover';
+
+  @override
+  String get discoverSubtitle =>
+      'Search every mirror at once, or paste an exact author/repo.';
+
+  @override
+  String get discoverEmpty => 'Nothing looked up yet';
+
+  @override
+  String get discoverEmptyHint =>
+      'Try a keyword like “qwen3 coder”, or an exact author/repo.';
+
+  @override
+  String get librarySubtitle =>
+      'One physical copy, hard-linked into every tool that asks for it.';
+
+  @override
+  String get libraryEmptyHint => 'Look up a model to get started.';
+
+  @override
+  String get queueSubtitle =>
+      'One download at a time — running two only splits the same pipe.';
+
+  @override
+  String get queueEmptyHint => 'Look up a model and add it to the queue.';
+
+  @override
+  String get targetsNavTitle => 'Targets';
+
+  @override
+  String get targetsSubtitle => 'Where a finished download gets hard-linked.';
+
+  @override
+  String targetsSelected(String targets) {
+    return 'Will link into $targets';
+  }
+
+  @override
+  String get targetsNoneSelected =>
+      'No target selected — downloads will only be stored.';
+
+  @override
+  String get statModels => 'Models';
+
+  @override
+  String get statOnDisk => 'On disk';
+
+  @override
+  String get statSaved => 'Saved by dedup';
+
+  @override
+  String get statReclaimable => 'Reclaimable';
+
+  @override
+  String get appearanceAction => 'Appearance';
+
+  @override
+  String get appearanceTooltip =>
+      'Follow macOS, or pin the window to one appearance';
+
+  @override
+  String get appearanceSystem => 'Match system';
+
+  @override
+  String get appearanceLight => 'Light';
+
+  @override
+  String get appearanceDark => 'Dark';
 }

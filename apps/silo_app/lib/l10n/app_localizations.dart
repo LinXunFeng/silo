@@ -275,7 +275,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Nothing stored yet. Look up a model to get started.'**
+  /// **'Nothing stored yet.'**
   String get libraryEmpty;
 
   /// No description provided for @librarySummary.
@@ -553,6 +553,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'OK'**
   String get confirmOkAction;
+
+  /// No description provided for @discoverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get discoverTitle;
+
+  /// No description provided for @discoverSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search every mirror at once, or paste an exact author/repo.'**
+  String get discoverSubtitle;
+
+  /// No description provided for @discoverEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing looked up yet'**
+  String get discoverEmpty;
+
+  /// No description provided for @discoverEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a keyword like “qwen3 coder”, or an exact author/repo.'**
+  String get discoverEmptyHint;
+
+  /// No description provided for @librarySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One physical copy, hard-linked into every tool that asks for it.'**
+  String get librarySubtitle;
+
+  /// No description provided for @libraryEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up a model to get started.'**
+  String get libraryEmptyHint;
+
+  /// No description provided for @queueSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One download at a time — running two only splits the same pipe.'**
+  String get queueSubtitle;
+
+  /// No description provided for @queueEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up a model and add it to the queue.'**
+  String get queueEmptyHint;
+
+  /// No description provided for @targetsNavTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Targets'**
+  String get targetsNavTitle;
+
+  /// No description provided for @targetsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where a finished download gets hard-linked.'**
+  String get targetsSubtitle;
+
+  /// No description provided for @targetsSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Will link into {targets}'**
+  String targetsSelected(String targets);
+
+  /// No description provided for @targetsNoneSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No target selected — downloads will only be stored.'**
+  String get targetsNoneSelected;
+
+  /// No description provided for @statModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Models'**
+  String get statModels;
+
+  /// No description provided for @statOnDisk.
+  ///
+  /// In en, this message translates to:
+  /// **'On disk'**
+  String get statOnDisk;
+
+  /// No description provided for @statSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved by dedup'**
+  String get statSaved;
+
+  /// No description provided for @statReclaimable.
+  ///
+  /// In en, this message translates to:
+  /// **'Reclaimable'**
+  String get statReclaimable;
+
+  /// No description provided for @appearanceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearanceAction;
+
+  /// No description provided for @appearanceTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow macOS, or pin the window to one appearance'**
+  String get appearanceTooltip;
+
+  /// No description provided for @appearanceSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Match system'**
+  String get appearanceSystem;
+
+  /// No description provided for @appearanceLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get appearanceLight;
+
+  /// No description provided for @appearanceDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get appearanceDark;
 }
 
 class _AppLocalizationsDelegate

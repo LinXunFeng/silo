@@ -2,8 +2,14 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:macos_ui/macos_ui.dart';
-import 'package:silo_app/common/color/color.dart';
 import 'package:silo_app/common/format/byte_format.dart';
+import 'package:silo_app/common/theme/app_dimens.dart';
+import 'package:silo_app/common/theme/app_palette.dart';
+import 'package:silo_app/common/widget/app_card.dart';
+import 'package:silo_app/common/widget/app_empty_state.dart';
+import 'package:silo_app/common/widget/app_notice.dart';
+import 'package:silo_app/common/widget/app_page_header.dart';
+import 'package:silo_app/common/widget/app_status_pill.dart';
 import 'package:silo_app/l10n/app_localizations.dart';
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
@@ -11,6 +17,7 @@ import 'package:silo_app/page/library/logic/library_logic_download.dart';
 import 'package:silo_app/page/library/state/library_state.dart';
 import 'package:silo_core/silo_core.dart';
 
+/// Work in flight, one job per card.
 class LibraryQueueView extends StatefulWidget {
   const LibraryQueueView({super.key});
 
@@ -26,6 +33,8 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
 
   AppLocalizations get l10n => AppLocalizations.of(context);
 
+  AppPalette get palette => AppPalette.of(context);
+
   MacosTypography get typography => MacosTheme.of(context).typography;
 
   @override
@@ -40,40 +49,31 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
   Widget _buildBody() {
     final jobs = queue.jobs;
 
-    Widget resultWidget = Column(
+    final jobCards = <Widget>[
+      for (final job in jobs) _buildJob(job: job, jobs: jobs),
+    ];
+
+    final Widget resultWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _buildHeader(),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xl),
+        ..._buildNotices(),
         if (jobs.isEmpty) _buildEmpty(),
-        for (final job in jobs) _buildJob(job: job, jobs: jobs),
-        _buildNotice(),
+        ...jobCards,
       ],
-    );
-    resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: resultWidget,
     );
     return resultWidget;
   }
 
   Widget _buildHeader() {
-    final Widget resultWidget = Row(
-      children: <Widget>[
-        Text(l10n.queueTitle, style: typography.headline),
-        const SizedBox(width: 10),
-        Expanded(child: _buildSummary()),
-        ..._buildHeaderActions(),
-      ],
-    );
-    return resultWidget;
-  }
-
-  Widget _buildSummary() {
-    if (queue.pendingCount == 0) return const SizedBox.shrink();
-    return Text(
-      l10n.queueSummary(queue.pendingCount),
-      style: typography.caption1.copyWith(color: AppColors.color8E8E93),
+    return AppPageHeader(
+      title: l10n.queueTitle,
+      caption: queue.pendingCount == 0
+          ? null
+          : l10n.queueSummary(queue.pendingCount),
+      subtitle: l10n.queueSubtitle,
+      actions: _buildHeaderActions(),
     );
   }
 
@@ -88,14 +88,14 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
 
     return <Widget>[
       PushButton(
-        controlSize: ControlSize.small,
+        controlSize: ControlSize.regular,
         secondary: true,
         onPressed: anyFinished ? logic.clearFinishedJobs : null,
         child: Text(l10n.queueClearAction),
       ),
-      const SizedBox(width: 6),
+      const SizedBox(width: AppSpacing.sm),
       PushButton(
-        controlSize: ControlSize.small,
+        controlSize: ControlSize.regular,
         secondary: !queue.isHalted,
         onPressed: anyPending ? logic.toggleQueueHold : null,
         child: Text(
@@ -108,37 +108,36 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
   }
 
   Widget _buildEmpty() {
-    return Text(
-      l10n.queueEmpty,
-      style: typography.caption1.copyWith(color: AppColors.color8E8E93),
+    return AppEmptyState(
+      icon: CupertinoIcons.arrow_down_circle,
+      title: l10n.queueEmpty,
+      hint: l10n.queueEmptyHint,
     );
   }
 
-  /// A one-off line explaining why the queue arrived full and idle.
-  Widget _buildNotice() {
-    final notices = <String>[
+  /// One-off lines explaining why the queue arrived full and idle.
+  List<Widget> _buildNotices() {
+    final notices = <({String text, IconData icon})>[
       if (state.restoredJobCount > 0)
-        l10n.queueRestoredNotice(state.restoredJobCount),
-      if (queue.isHalted) l10n.queueHeldNotice,
+        (
+          text: l10n.queueRestoredNotice(state.restoredJobCount),
+          icon: CupertinoIcons.clock,
+        ),
+      if (queue.isHalted)
+        (text: l10n.queueHeldNotice, icon: CupertinoIcons.pause_circle),
     ];
-    if (notices.isEmpty) return const SizedBox.shrink();
 
-    Widget resultWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        for (final notice in notices)
-          Text(
-            notice,
-            style: typography.caption2
-                .copyWith(color: AppColors.colorFB8C00),
+    return <Widget>[
+      for (final notice in notices)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: AppNotice(
+            icon: notice.icon,
+            message: notice.text,
+            color: palette.warning,
           ),
-      ],
-    );
-    resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: resultWidget,
-    );
-    return resultWidget;
+        ),
+    ];
   }
 
   Widget _buildJob({required QueueJob job, required List<QueueJob> jobs}) {
@@ -149,37 +148,35 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
         if (job.status == QueueJobStatus.running) _buildJobProgress(job: job),
         if (job.error != null) _buildJobError(job: job),
         if (job.status == QueueJobStatus.completed) _buildJobResult(job: job),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.lg),
         _buildJobActions(job: job, jobs: jobs),
       ],
     );
+    resultWidget = AppCard(child: resultWidget);
     resultWidget = Padding(
-      padding: const EdgeInsets.all(12),
-      child: resultWidget,
-    );
-    resultWidget = DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.color8E8E93.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: resultWidget,
-    );
-    resultWidget = Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: resultWidget,
     );
     return resultWidget;
   }
 
   Widget _buildJobHeader({required QueueJob job}) {
+    final titleText = Text(
+      job.title,
+      overflow: TextOverflow.ellipsis,
+      style: typography.headline.copyWith(
+        color: palette.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
     final Widget resultWidget = Row(
       children: <Widget>[
-        Expanded(child: Text(job.title, style: typography.body)),
-        const SizedBox(width: 8),
-        Text(
-          _statusLabel(status: job.status),
-          style: typography.caption1
-              .copyWith(color: _statusColor(status: job.status)),
+        Expanded(child: titleText),
+        const SizedBox(width: AppSpacing.md),
+        AppStatusPill(
+          label: _statusLabel(status: job.status),
+          color: _statusColor(status: job.status),
         ),
       ],
     );
@@ -188,63 +185,117 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
 
   Widget _buildJobProgress({required QueueJob job}) {
     final progress = job.progress;
-    if (progress == null) {
-      Widget resultWidget = Text(
-        l10n.statusResolving,
-        style: typography.caption1,
-      );
-      resultWidget = Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: resultWidget,
-      );
-      return resultWidget;
-    }
+    if (progress == null) return _buildResolving();
 
     // Every byte in, digest still running: on a multi-gigabyte shard the
     // silence would otherwise read as a hang.
-    final bool verifying = progress.file.fraction == 1.0;
+    final bool isVerifying = progress.file.fraction == 1.0;
 
     Widget resultWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        ProgressBar(value: (progress.fraction * 100).clamp(0, 100)),
-        const SizedBox(height: 6),
-        Text(
-          verifying
-              ? l10n.statusVerifying
-              : l10n.downloadFile(
-                  progress.fileName,
-                  progress.fileIndex + 1,
-                  progress.fileCount,
-                ),
-          style: typography.caption1,
-        ),
-        Text(
-          l10n.downloadStats(
-            formatBytes(bytes: progress.receivedBytes),
-            formatBytes(bytes: progress.totalBytes),
-            formatRate(bytesPerSecond: progress.file.bytesPerSecond),
-            formatDuration(duration: progress.file.eta),
-          ),
-          style: typography.caption2
-              .copyWith(color: AppColors.color8E8E93),
-        ),
-        Text(
-          l10n.downloadConnections(
-            progress.file.activeConnections,
-            progress.file.completedChunks,
-            progress.file.totalChunks,
-          ),
-          style: typography.caption2
-              .copyWith(color: AppColors.color8E8E93),
-        ),
+        _buildProgressBar(progress: progress),
+        const SizedBox(height: AppSpacing.md),
+        _buildFileLine(progress: progress, isVerifying: isVerifying),
+        const SizedBox(height: 2),
+        _buildStatsLine(progress: progress),
       ],
     );
     resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: AppSpacing.lg),
       child: resultWidget,
     );
     return resultWidget;
+  }
+
+  Widget _buildResolving() {
+    final labelText = Text(
+      l10n.statusResolving,
+      style: typography.caption1.copyWith(color: palette.textSecondary),
+    );
+
+    Widget resultWidget = Row(
+      children: <Widget>[
+        const ProgressCircle(radius: 6),
+        const SizedBox(width: AppSpacing.sm),
+        labelText,
+      ],
+    );
+    resultWidget = Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  /// The bar and the percentage read together: the bar for the shape of the
+  /// progress, the number for whether it is still moving.
+  Widget _buildProgressBar({required AddProgress progress}) {
+    final double percent = (progress.fraction * 100).clamp(0, 100);
+
+    final percentText = Text(
+      '${percent.toStringAsFixed(0)}%',
+      style: typography.caption1.copyWith(
+        color: palette.textSecondary,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+      ),
+    );
+
+    final Widget resultWidget = Row(
+      children: <Widget>[
+        Expanded(
+          child: ProgressBar(
+            value: percent,
+            height: AppSizes.progressBarHeight,
+            trackColor: palette.accent,
+            backgroundColor: palette.trackFill,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        percentText,
+      ],
+    );
+    return resultWidget;
+  }
+
+  Widget _buildFileLine({
+    required AddProgress progress,
+    required bool isVerifying,
+  }) {
+    return Text(
+      isVerifying
+          ? l10n.statusVerifying
+          : l10n.downloadFile(
+              progress.fileName,
+              progress.fileIndex + 1,
+              progress.fileCount,
+            ),
+      overflow: TextOverflow.ellipsis,
+      style: typography.caption1.copyWith(color: palette.textPrimary),
+    );
+  }
+
+  /// Bytes, rate, ETA and connections on one line rather than two: they answer
+  /// the same question, and stacking them made the card twice as tall for it.
+  Widget _buildStatsLine({required AddProgress progress}) {
+    final parts = <String>[
+      l10n.downloadStats(
+        formatBytes(bytes: progress.receivedBytes),
+        formatBytes(bytes: progress.totalBytes),
+        formatRate(bytesPerSecond: progress.file.bytesPerSecond),
+        formatDuration(duration: progress.file.eta),
+      ),
+      l10n.downloadConnections(
+        progress.file.activeConnections,
+        progress.file.completedChunks,
+        progress.file.totalChunks,
+      ),
+    ];
+
+    return Text(
+      parts.join(' · '),
+      style: typography.caption2.copyWith(color: palette.textSecondary),
+    );
   }
 
   Widget _buildJobResult({required QueueJob job}) {
@@ -252,27 +303,29 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
     final cost = job.linkedCostBytes;
     if (visible == null || cost == null) return const SizedBox.shrink();
 
-    Widget resultWidget = Text(
-      l10n.linkedResult(
+    Widget resultWidget = AppNotice(
+      icon: CupertinoIcons.checkmark_circle,
+      message: l10n.linkedResult(
         formatBytes(bytes: visible),
         formatBytes(bytes: cost),
       ),
-      style: typography.caption2.copyWith(color: AppColors.color43A047),
+      color: palette.success,
     );
     resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: AppSpacing.md),
       child: resultWidget,
     );
     return resultWidget;
   }
 
   Widget _buildJobError({required QueueJob job}) {
-    Widget resultWidget = Text(
-      job.error ?? '',
-      style: typography.caption2.copyWith(color: AppColors.colorE53935),
+    Widget resultWidget = AppNotice(
+      icon: CupertinoIcons.exclamationmark_triangle,
+      message: job.error ?? '',
+      color: palette.danger,
     );
     resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: AppSpacing.md),
       child: resultWidget,
     );
     return resultWidget;
@@ -287,52 +340,70 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
 
     final Widget resultWidget = Row(
       children: <Widget>[
-        if (job.status == QueueJobStatus.running ||
-            job.status == QueueJobStatus.queued)
-          PushButton(
-            controlSize: ControlSize.small,
-            secondary: true,
-            onPressed: () => logic.pauseJob(jobId: job.id),
-            child: Text(l10n.pauseAction),
-          ),
-        if (job.status == QueueJobStatus.paused)
-          PushButton(
-            controlSize: ControlSize.small,
-            onPressed: () => logic.resumeJob(jobId: job.id),
-            child: Text(l10n.resumeAction),
-          ),
-        if (!job.isFinished) const SizedBox(width: 6),
-        if (!job.isFinished)
-          PushButton(
-            controlSize: ControlSize.small,
-            secondary: true,
-            onPressed: () => logic.cancelJob(jobId: job.id),
-            child: Text(l10n.cancelAction),
-          ),
-        const SizedBox(width: 6),
+        ..._buildHoldActions(job: job),
         PushButton(
-          controlSize: ControlSize.small,
+          controlSize: ControlSize.regular,
           secondary: true,
           onPressed: () => logic.removeJob(jobId: job.id),
           child: Text(l10n.removeFromQueueAction),
         ),
-        if (canReorder) const Spacer(),
+        const Spacer(),
         if (canReorder)
-          MacosIconButton(
-            icon: const MacosIcon(CupertinoIcons.chevron_up, size: 12),
-            onPressed:
-                index == 0 ? null : () => logic.moveJobUp(jobId: job.id),
-          ),
-        if (canReorder)
-          MacosIconButton(
-            icon: const MacosIcon(CupertinoIcons.chevron_down, size: 12),
-            onPressed: index == jobs.length - 1
-                ? null
-                : () => logic.moveJobDown(jobId: job.id),
-          ),
+          ..._buildReorderActions(job: job, index: index, jobs: jobs),
       ],
     );
     return resultWidget;
+  }
+
+  List<Widget> _buildHoldActions({required QueueJob job}) {
+    final bool isPausable = job.status == QueueJobStatus.running ||
+        job.status == QueueJobStatus.queued;
+
+    return <Widget>[
+      if (isPausable)
+        PushButton(
+          controlSize: ControlSize.regular,
+          secondary: true,
+          onPressed: () => logic.pauseJob(jobId: job.id),
+          child: Text(l10n.pauseAction),
+        ),
+      if (job.status == QueueJobStatus.paused)
+        PushButton(
+          controlSize: ControlSize.regular,
+          onPressed: () => logic.resumeJob(jobId: job.id),
+          child: Text(l10n.resumeAction),
+        ),
+      if (!job.isFinished) const SizedBox(width: AppSpacing.sm),
+      if (!job.isFinished)
+        PushButton(
+          controlSize: ControlSize.regular,
+          secondary: true,
+          onPressed: () => logic.cancelJob(jobId: job.id),
+          child: Text(l10n.cancelAction),
+        ),
+      if (!job.isFinished) const SizedBox(width: AppSpacing.sm),
+    ];
+  }
+
+  List<Widget> _buildReorderActions({
+    required QueueJob job,
+    required int index,
+    required List<QueueJob> jobs,
+  }) {
+    return <Widget>[
+      MacosIconButton(
+        icon: const MacosIcon(CupertinoIcons.chevron_up, size: 12),
+        semanticLabel: l10n.moveUpAction,
+        onPressed: index == 0 ? null : () => logic.moveJobUp(jobId: job.id),
+      ),
+      MacosIconButton(
+        icon: const MacosIcon(CupertinoIcons.chevron_down, size: 12),
+        semanticLabel: l10n.moveDownAction,
+        onPressed: index == jobs.length - 1
+            ? null
+            : () => logic.moveJobDown(jobId: job.id),
+      ),
+    ];
   }
 
   String _statusLabel({required QueueJobStatus status}) {
@@ -348,12 +419,12 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
 
   Color _statusColor({required QueueJobStatus status}) {
     return switch (status) {
-      QueueJobStatus.running => AppColors.color1E88E5,
-      QueueJobStatus.completed => AppColors.color43A047,
-      QueueJobStatus.failed => AppColors.colorE53935,
-      QueueJobStatus.paused => AppColors.colorFB8C00,
-      QueueJobStatus.queued => AppColors.color8E8E93,
-      QueueJobStatus.cancelled => AppColors.color8E8E93,
+      QueueJobStatus.running => palette.accent,
+      QueueJobStatus.completed => palette.success,
+      QueueJobStatus.failed => palette.danger,
+      QueueJobStatus.paused => palette.warning,
+      QueueJobStatus.queued => palette.neutral,
+      QueueJobStatus.cancelled => palette.neutral,
     };
   }
 }

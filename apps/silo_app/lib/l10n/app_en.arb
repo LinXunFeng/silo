@@ -106,7 +106,7 @@
   },
   "unknownValue": "—",
   "libraryTitle": "Library",
-  "libraryEmpty": "Nothing stored yet. Look up a model to get started.",
+  "libraryEmpty": "Nothing stored yet.",
   "librarySummary": "{models} models · {size} on disk",
   "@librarySummary": {
     "placeholders": {
@@ -296,5 +296,33 @@
     }
   },
   "reclaimConfirmAction": "Reclaim",
-  "confirmOkAction": "OK"
+  "confirmOkAction": "OK",
+  "discoverTitle": "Discover",
+  "discoverSubtitle": "Search every mirror at once, or paste an exact author/repo.",
+  "discoverEmpty": "Nothing looked up yet",
+  "discoverEmptyHint": "Try a keyword like “qwen3 coder”, or an exact author/repo.",
+  "librarySubtitle": "One physical copy, hard-linked into every tool that asks for it.",
+  "libraryEmptyHint": "Look up a model to get started.",
+  "queueSubtitle": "One download at a time — running two only splits the same pipe.",
+  "queueEmptyHint": "Look up a model and add it to the queue.",
+  "targetsNavTitle": "Targets",
+  "targetsSubtitle": "Where a finished download gets hard-linked.",
+  "targetsSelected": "Will link into {targets}",
+  "@targetsSelected": {
+    "placeholders": {
+      "targets": {
+        "type": "String"
+      }
+    }
+  },
+  "targetsNoneSelected": "No target selected — downloads will only be stored.",
+  "statModels": "Models",
+  "statOnDisk": "On disk",
+  "statSaved": "Saved by dedup",
+  "statReclaimable": "Reclaimable",
+  "appearanceAction": "Appearance",
+  "appearanceTooltip": "Follow macOS, or pin the window to one appearance",
+  "appearanceSystem": "Match system",
+  "appearanceLight": "Light",
+  "appearanceDark": "Dark"
 }

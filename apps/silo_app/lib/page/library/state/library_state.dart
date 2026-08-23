@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_core/silo_core.dart';
 
 class LibraryState {
@@ -7,9 +8,25 @@ class LibraryState {
 
   final TextEditingController searchController = TextEditingController();
 
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  /// Opens on discovery: an empty library has nothing else worth showing.
+  LibrarySection selectedSection = LibrarySection.discover;
+
+  /// Job count as the sidebar last drew it, so the badge is refreshed when a
+  /// job arrives or leaves rather than on every progress tick.
+  int lastNavigationJobCount = 0;
+
   // ── Lookup ────────────────────────────────────────────────────────────────
 
   bool isSearching = false;
+
+  /// Set once a lookup has come back with an answer, right or empty.
+  ///
+  /// Without it an empty result set is indistinguishable from a session where
+  /// nothing was ever typed, and the screen would offer to get started while
+  /// showing the results of a search that simply matched nothing.
+  bool hasLookedUp = false;
 
   String? errorMessage;
 

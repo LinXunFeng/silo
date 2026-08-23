@@ -1,5 +1,6 @@
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
+import 'package:silo_app/page/library/logic/library_logic_section.dart';
 import 'package:silo_core/silo_core.dart';
 
 /// Putting work on the queue and steering it.
@@ -20,6 +21,10 @@ extension LibraryLogicDownload on LibraryLogic {
       variantName: variant.name,
       targetIds: state.selectedTargetIds.toList(),
     );
+
+    // The queue lives on another screen now. Sending the user there is the
+    // only acknowledgement the button has that something happened.
+    showQueueSection();
   }
 
   void pauseJob({required String jobId}) => queue.pause(jobId);
@@ -52,6 +57,7 @@ extension LibraryLogicDownload on LibraryLogic {
   /// rate would be wasted work.
   void onQueueChanged(DownloadQueue queue) {
     update(<Object>[LibraryUpdateType.queue]);
+    refreshNavigationCounts();
 
     // The library only changes when something finishes, so refresh it then
     // rather than on every tick.

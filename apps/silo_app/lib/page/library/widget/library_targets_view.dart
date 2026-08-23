@@ -1,7 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:macos_ui/macos_ui.dart';
-import 'package:silo_app/common/color/color.dart';
+import 'package:silo_app/common/theme/app_dimens.dart';
+import 'package:silo_app/common/theme/app_palette.dart';
+import 'package:silo_app/common/widget/app_card.dart';
+import 'package:silo_app/common/widget/app_page_header.dart';
+import 'package:silo_app/common/widget/app_status_pill.dart';
 import 'package:silo_app/l10n/app_localizations.dart';
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
@@ -9,6 +13,11 @@ import 'package:silo_app/page/library/logic/library_logic_link.dart';
 import 'package:silo_app/page/library/state/library_state.dart';
 import 'package:silo_core/silo_core.dart';
 
+/// The tools a finished download gets hard-linked into.
+///
+/// The whole card toggles, not just the checkbox: the row already reads as one
+/// choice, and a 14-pixel hit target for the only decision on the screen is a
+/// needless act of precision.
 class LibraryTargetsView extends StatefulWidget {
   const LibraryTargetsView({super.key});
 
@@ -22,6 +31,8 @@ class _LibraryTargetsViewState extends State<LibraryTargetsView>
 
   AppLocalizations get l10n => AppLocalizations.of(context);
 
+  AppPalette get palette => AppPalette.of(context);
+
   MacosTypography get typography => MacosTheme.of(context).typography;
 
   @override
@@ -34,61 +45,114 @@ class _LibraryTargetsViewState extends State<LibraryTargetsView>
   }
 
   Widget _buildBody() {
-    final targetRows = <Widget>[
+    final targetCards = <Widget>[
       for (final target in state.targets) _buildRow(target: target),
     ];
-
-    Widget resultWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(l10n.targetsTitle, style: typography.headline),
-        const SizedBox(height: 6),
-        ...targetRows,
-      ],
-    );
-    resultWidget = Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: resultWidget,
-    );
-    return resultWidget;
-  }
-
-  Widget _buildRow({required DownloadTarget target}) {
-    final isPresent = state.presentTargetIds.contains(target.id);
-
-    Widget resultWidget = Row(
-      children: <Widget>[
-        MacosCheckbox(
-          value: state.selectedTargetIds.contains(target.id),
-          onChanged: (_) => logic.toggleTarget(targetId: target.id),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: _buildLabel(target: target, isPresent: isPresent)),
-      ],
-    );
-    resultWidget = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: resultWidget,
-    );
-    return resultWidget;
-  }
-
-  Widget _buildLabel({
-    required DownloadTarget target,
-    required bool isPresent,
-  }) {
-    final suffix = isPresent ? '' : ' · ${l10n.targetNotInstalled}';
 
     final Widget resultWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('${target.displayName}$suffix', style: typography.body),
-        Text(
-          target.root.path,
-          style: typography.caption2
-              .copyWith(color: AppColors.color8E8E93),
-        ),
+        _buildHeader(),
+        const SizedBox(height: AppSpacing.xl),
+        ...targetCards,
       ],
+    );
+    return resultWidget;
+  }
+
+  Widget _buildHeader() {
+    return AppPageHeader(
+      title: l10n.targetsNavTitle,
+      subtitle: l10n.targetsSubtitle,
+    );
+  }
+
+  Widget _buildRow({required DownloadTarget target}) {
+    final bool isSelected = state.selectedTargetIds.contains(target.id);
+
+    Widget resultWidget = Row(
+      children: <Widget>[
+        _buildCheckbox(target: target, isSelected: isSelected),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: _buildLabel(target: target)),
+      ],
+    );
+    resultWidget = AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      isSelected: isSelected,
+      onTap: () => logic.toggleTarget(targetId: target.id),
+      child: resultWidget,
+    );
+    resultWidget = Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  /// The box reports the state; the card is what changes it.
+  ///
+  /// It keeps its enabled colours — a disabled checkbox would say the target
+  /// cannot be picked — but takes no pointers, so a click on the box and a
+  /// click beside it are the same single toggle rather than two competing ones.
+  Widget _buildCheckbox({
+    required DownloadTarget target,
+    required bool isSelected,
+  }) {
+    Widget resultWidget = MacosCheckbox(
+      value: isSelected,
+      onChanged: (_) => logic.toggleTarget(targetId: target.id),
+    );
+    resultWidget = IgnorePointer(child: resultWidget);
+    return resultWidget;
+  }
+
+  Widget _buildLabel({required DownloadTarget target}) {
+    final bool isPresent = state.presentTargetIds.contains(target.id);
+
+    final nameText = Text(
+      target.displayName,
+      style: typography.body.copyWith(
+        color: palette.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
+    final pathText = Text(
+      target.root.path,
+      overflow: TextOverflow.ellipsis,
+      style: typography.caption2.copyWith(color: palette.textSecondary),
+    );
+
+    final Widget resultWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            nameText,
+            if (!isPresent) _buildAbsentPill(),
+          ],
+        ),
+        const SizedBox(height: 2),
+        pathText,
+      ],
+    );
+    return resultWidget;
+  }
+
+  /// A tool that is not installed can still be selected — its directory is
+  /// created on the first link — so this is a note, not a warning.
+  Widget _buildAbsentPill() {
+    Widget resultWidget = AppStatusPill(
+      label: l10n.targetNotInstalled,
+      color: palette.neutral,
+    );
+    resultWidget = Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.sm),
+      child: resultWidget,
     );
     return resultWidget;
   }

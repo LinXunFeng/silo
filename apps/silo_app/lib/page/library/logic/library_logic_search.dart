@@ -45,6 +45,7 @@ extension LibraryLogicSearch on LibraryLogic {
       state.selectedVariantName = _defaultVariantName(
         variants: result.variants,
       );
+      state.hasLookedUp = true;
     } on Object catch (error) {
       state.errorMessage = '$error';
     } finally {
@@ -72,6 +73,9 @@ extension LibraryLogicSearch on LibraryLogic {
         query,
         localFormatsOnly: !state.includeAllFormats,
       );
+      // Only on the way out of a successful call: a network failure has its
+      // own message, and "nothing matched" would talk over it.
+      state.hasLookedUp = true;
     } on Object catch (error) {
       state.errorMessage = '$error';
     } finally {

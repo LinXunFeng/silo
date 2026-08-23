@@ -57,7 +57,8 @@ class LibraryLogic extends GetxController {
   Future<void> _restoreQueue() async {
     await queue.load();
     state.restoredJobCount = queue.jobs.length;
-    update(<Object>[LibraryUpdateType.queue]);
+    state.lastNavigationJobCount = queue.jobs.length;
+    update(<Object>[LibraryUpdateType.queue, LibraryUpdateType.navigation]);
   }
 
   /// Reloads the catalogue, store size and target availability.
@@ -87,7 +88,12 @@ class LibraryLogic extends GetxController {
     state.logicalBytes = catalogued + linked;
     state.reclaimableBytes = reclaimable.bytes;
     state.presentTargetIds = present;
-    update(<Object>[LibraryUpdateType.stored, LibraryUpdateType.targets]);
+    update(<Object>[
+      LibraryUpdateType.stored,
+      LibraryUpdateType.targets,
+      // The sidebar shows the model count beside the library entry.
+      LibraryUpdateType.navigation,
+    ]);
   }
 
   /// Opens a path in Finder.
