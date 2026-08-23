@@ -60,8 +60,10 @@ class _LibraryNavViewState extends State<LibraryNavView>
         _buildItem(section: LibrarySection.targets),
       ],
     );
+    // Paired with the brand block's inset above: SidebarItems adds 8 of its
+    // own, so the icons land level with the logo rather than 8 short of it.
     resultWidget = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: resultWidget,
     );
     return resultWidget;

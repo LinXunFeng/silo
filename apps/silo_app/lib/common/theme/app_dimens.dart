@@ -33,6 +33,10 @@ class AppSizes {
   /// The gutter a pulldown menu keeps for its tick mark.
   static const double menuMarkWidth = 12;
 
+  /// Sized against the two lines of text beside it, so the mark and the name
+  /// read as one block rather than as an icon with a caption stuck to it.
+  static const double brandLogo = 34;
+
   static const double sidebarMinWidth = 232;
   static const double sidebarStartWidth = 248;
 

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:macos_ui/macos_ui.dart';
+import 'package:silo_app/common/asset/app_asset.dart';
 import 'package:silo_app/common/theme/app_dimens.dart';
 import 'package:silo_app/common/theme/app_palette.dart';
 import 'package:silo_app/common/theme/app_theme_logic.dart';
@@ -85,7 +86,7 @@ class LibraryPageState extends State<LibraryPage>
       style: typography.caption2.copyWith(color: palette.textSecondary),
     );
 
-    Widget resultWidget = Column(
+    final wordmarkColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         nameText,
@@ -93,11 +94,41 @@ class LibraryPageState extends State<LibraryPage>
         taglineText,
       ],
     );
+
+    Widget resultWidget = Row(
+      children: <Widget>[
+        _buildLogo(),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: wordmarkColumn),
+      ],
+    );
+    // macos_ui already insets `Sidebar.top` by 8, and the nav below is inset
+    // by 8 plus SidebarItems' own 8 — so this number and the nav's must move
+    // together or the logo stops lining up with the icons under it.
     resultWidget = Padding(
       padding: const EdgeInsets.only(
-        left: AppSpacing.sm,
+        left: AppSpacing.md,
+        right: AppSpacing.md,
         bottom: AppSpacing.sm,
       ),
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  /// The logo is an opaque square — the file carries no alpha — so the corners
+  /// are rounded here. Left alone, a pale beige block would meet the sidebar's
+  /// dark vibrancy at a hard right angle.
+  Widget _buildLogo() {
+    Widget resultWidget = Image.asset(
+      AppAssets.logo,
+      width: AppSizes.brandLogo,
+      height: AppSizes.brandLogo,
+      fit: BoxFit.cover,
+      filterQuality: FilterQuality.medium,
+    );
+    resultWidget = ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: resultWidget,
     );
     return resultWidget;
