@@ -5,9 +5,9 @@ environment:
   sdk: ^3.12.0
 
 workspace:
-  - packages/silo_core
-  - packages/silo_cli
-  - apps/silo_app
+  - packages/core
+  - packages/cli
+  - apps/silo
 
 dev_dependencies:
   lints: ^5.0.0

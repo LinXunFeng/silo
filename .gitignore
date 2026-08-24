@@ -6,10 +6,10 @@ pubspec.lock
 *.iml
 
 # Flutter macOS
-apps/silo_app/macos/Pods/
-apps/silo_app/macos/Flutter/ephemeral/
-apps/silo_app/.flutter-plugins
-apps/silo_app/.flutter-plugins-dependencies
+apps/silo/macos/Pods/
+apps/silo/macos/Flutter/ephemeral/
+apps/silo/.flutter-plugins
+apps/silo/.flutter-plugins-dependencies
 
 # IDE
 .idea/

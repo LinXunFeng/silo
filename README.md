@@ -49,9 +49,9 @@ never means touching a target, and adding a tool never means touching the
 downloader.
 
 ```
-packages/silo_core   engine, sources, store, targets — zero runtime dependencies
-packages/silo_cli    the `silo` command
-apps/silo_app        Flutter macOS app
+packages/core    engine, sources, store, targets — zero runtime dependencies
+packages/cli     the `silo` command
+apps/silo        Flutter macOS app
 ```
 
 `silo_core` deliberately has no package dependencies: `dart:io` and a hand-rolled
@@ -61,7 +61,7 @@ streaming SHA-256, pinned against NIST vectors and the system `shasum`.
 
 ```bash
 dart pub get
-dart compile exe packages/silo_cli/bin/silo.dart -o ~/bin/silo
+dart compile exe packages/cli/bin/silo.dart -o ~/bin/silo
 ```
 
 ```bash
