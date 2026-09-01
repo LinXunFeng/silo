@@ -11,4 +11,59 @@ workspace:
 
 dev_dependencies:
   lints: ^5.0.0
+  melos: ^8.3.0
   test: ^1.25.0
+
+melos:
+  repository: https://github.com/LinXunFeng/silo
+
+  command:
+    version:
+      # One product, one version number: core, cli and the app move together.
+      mode: fixed
+      # A root CHANGELOG.md is the one a reader actually opens.
+      workspaceChangelog: true
+      includeScopes: true
+      linkToCommits: true
+      changelogFormat:
+        groupByType: true
+
+  scripts:
+    release:
+      description: >-
+        Version the workspace from the conventional commits since the last
+        release, write the changelogs, and tag it v<version> — melos tags each
+        package (silo_core-v0.1.1+2), which is not what the release workflow
+        listens for, so it does the tagging itself.
+      run: |
+        set -e
+        melos version --all --no-git-tag-version
+        git log -1 --pretty=%s | grep -q '^chore(release)' || {
+          echo 'No release commit was made, so there is nothing to tag.' >&2
+          exit 1
+        }
+        version=$(grep -m1 '^version:' packages/core/pubspec.yaml | cut -d' ' -f2 | cut -d+ -f1)
+        git tag -a "v$version" -m "Silo v$version"
+        echo "Tagged v$version — push it with: git push --follow-tags"
+
+    analyze:
+      description: Analyze every package in the workspace.
+      run: dart analyze
+
+    test:
+      description: Run every test in the workspace.
+      run: melos run test:dart && melos run test:flutter
+
+    test:dart:
+      description: Run the pure-Dart package tests.
+      exec: dart test
+      packageFilters:
+        flutter: false
+        dirExists: test
+
+    test:flutter:
+      description: Run the Flutter app tests.
+      exec: flutter test
+      packageFilters:
+        flutter: true
+        dirExists: test
