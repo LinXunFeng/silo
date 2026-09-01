@@ -1,8 +1,17 @@
-# Silo
+<p align="center">
+  <img src="assets/logo.png" alt="Silo" width="160" />
+</p>
+
+<h1 align="center">Silo</h1>
 
 <p align="center">
-  <img src="assets/logo.png" alt="Silo Logo" width="160" />
+  <a href="https://github.com/LinXunFeng/"><img src="https://img.shields.io/badge/author-LinXunFeng-blue.svg?style=flat-square&logo=Iconify" alt="author"></a>
+  <a href="https://github.com/LinXunFeng/silo/releases/latest"><img src="https://img.shields.io/github/v/release/LinXunFeng/silo?style=flat-square&logo=github" alt="release"></a>
+  <a href="https://github.com/LinXunFeng/silo"><img src="https://img.shields.io/github/stars/LinXunFeng/silo?style=flat-square&logo=github" alt="stars"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey?style=flat-square&logo=apple" alt="platform">
 </p>
+
+Language: English | [中文](README-zh.md)
 
 A local model library for macOS. **Download once, link everywhere.**
 
@@ -14,55 +23,83 @@ tool sees an ordinary file; the disk gives up the space once.
 Downloading fast from China is the reason this started, but it is not what the
 project is. Silo is a library manager that happens to have a good downloader.
 
-## Status
+## ☕ Support me
 
-Working end to end from both the command line and the macOS app. Only LM Studio
-is supported as a destination so far.
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=WeChat&nbsp;Pay&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)
 
-| Layer | State |
-|---|---|
-| Chunked download engine (ranges, resume, verify, throttle) | done |
-| Sources: hf-mirror, ModelScope, HuggingFace | done |
-| Keyword search across sources | done |
-| Content-addressed store + hard-link distribution | done |
-| Target: LM Studio | done |
-| Serial download queue (CLI + app) | done |
-| CLI (`silo`) | done |
-| macOS app: search, queue, download, link | done |
-| Targets: Ollama, llama.cpp, ComfyUI, HF cache | not started |
+## 🔨 Feature
 
-## Architecture
+- [x] **One copy on disk.** A content-addressed store holds the bytes once and
+      hard-links them into every tool that wants them — same inode, no extra
+      space, and each tool still sees an ordinary file.
+- [x] **A downloader built for slow links.** Ranged parallel chunks, resume
+      across restarts and reboots, SHA-256 verification, rate limiting.
+- [x] **Mirrors that fail over.** Both hubs publish the same digest for the same
+      file, so a download can switch mirrors mid-flight and still verify.
+- [x] **Picks the fastest mirror by measuring it.** Not by trusting the order
+      they are listed in — real bytes are sampled before choosing.
+- [x] **One search box for every source.** Keyword search across all sources at
+      once, with the GGUF and MLX builds surfaced instead of buried.
+- [x] **Sharded models stay whole.** Multi-part weights and the `mmproj-*.gguf`
+      a vision model needs are grouped into one selectable variant.
+- [x] **A serial queue.** Downloading two models at once is slower than doing
+      them in turn, so the queue runs one at a time — and survives Ctrl-C.
+- [x] **Both a window and a terminal.** The macOS app and the `silo` command
+      share the same engine and the same library.
 
+## 🎀 Support
+
+**Sources**
+
+- [x] HuggingFace
+- [x] hf-mirror
+- [x] ModelScope
+- [x] Custom endpoints
+
+**Targets**
+
+- [x] LM Studio
+- [ ] Ollama
+- [ ] llama.cpp
+- [ ] ComfyUI
+- [ ] HuggingFace cache (transformers / vLLM)
+
+## 📦 Installing
+
+### App
+
+Download the `.dmg` from [Releases](https://github.com/LinXunFeng/silo/releases/latest)
+and drag Silo into Applications.
+
+The builds are neither signed nor notarised, so Gatekeeper blocks the first
+launch. Strip the quarantine attribute to get past it:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Silo.app
 ```
-Source                    Engine                    Target
-──────────────────        ──────────────────        ──────────────────
-HuggingFace               range requests            LM Studio
-hf-mirror                 parallel chunks           llama.cpp
-ModelScope                resume via sidecar        Ollama
-(custom endpoints)        SHA-256 verification      ComfyUI / HF cache
-                          rate limiting
+
+### CLI
+
+Download `silo-<version>-macos-universal.tar.gz` from the same release:
+
+```bash
+tar -xzf silo-*-macos-universal.tar.gz
+xattr -d com.apple.quarantine silo 2>/dev/null || true
+mv silo ~/bin/silo
 ```
 
-The engine in the middle knows nothing about models. It moves bytes from a URL
-into a file. Sources and targets are plugins on either side, so adding a mirror
-never means touching a target, and adding a tool never means touching the
-downloader.
-
-```
-packages/core    engine, sources, store, targets — zero runtime dependencies
-packages/cli     the `silo` command
-apps/silo        Flutter macOS app
-```
-
-`silo_core` deliberately has no package dependencies: `dart:io` and a hand-rolled
-streaming SHA-256, pinned against NIST vectors and the system `shasum`.
-
-## Usage
+Or build it from source:
 
 ```bash
 dart pub get
 dart compile exe packages/cli/bin/silo.dart -o ~/bin/silo
 ```
+
+## 🚀 Usage
+
+The app does all of this with a window. Its one search box takes either a
+keyword or an exact `author/repo`, and does the sensible thing with each —
+search results you can click through, or straight to the variant list.
 
 ```bash
 # Don't know the exact id? Search every source at once.
@@ -96,81 +133,91 @@ silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
 silo gc
 ```
 
-The macOS app does the same things with a window. Its one search box takes
-either a keyword or an exact `author/repo`, and does the sensible thing with
-each — search results you can click through, or straight to the variant list.
-
 Useful global flags: `-j` connections (default 8), `--limit 5M` to throttle,
 `--source modelscope` to pin a mirror, `--store` to relocate the library.
 
-## Things that turned out to matter
+## 🧱 Architecture
 
-Notes from building this, because each one is a silent failure rather than an
-error message.
+```
+Source                    Engine                    Target
+──────────────────        ──────────────────        ──────────────────
+HuggingFace               range requests            LM Studio
+hf-mirror                 parallel chunks           llama.cpp
+ModelScope                resume via sidecar        Ollama
+(custom endpoints)        SHA-256 verification      ComfyUI / HF cache
+                          rate limiting
+```
 
-- **`X-Linked-Etag` is the file's SHA-256, and it only appears on the 302.**
-  Following the redirect automatically throws the digest away — the `ETag` on
-  the CDN response is a different hash entirely. The probe walks redirects by
-  hand to catch it.
-- **ModelScope answers `HEAD` with 404.** Size has to be probed with a `GET` and
-  a one-byte range, reading the total out of `Content-Range`.
-- **Transparent decompression corrupts ranged downloads,** so the shared client
-  runs with `autoUncompress = false` — which then breaks JSON listings, because
-  HuggingFace gzips its tree API and ModelScope does not. The source layer
-  inflates listing bodies itself.
-- **Downloads must ask for `identity` on every redirect hop.** HuggingFace gzips
-  small non-LFS files — the config and tokenizer JSON — and `followRedirects`
-  cannot carry the header: Dart builds a fresh request per hop and restores its
-  own `Accept-Encoding: gzip`, so the response that returns the body arrives
-  compressed and lands on disk that way. The download path follows redirects by
-  hand for that reason alone.
-- **Non-LFS files publish no digest**, so the declared size is the only evidence
-  that what arrived is what was meant. It is checked on every path, including
-  the single-stream fallback.
-- **LM Studio's MLX backend globs `*.safetensors` and merges them,** ignoring
-  `model.safetensors.index.json` and special-casing exactly one name. A repo
-  that ships an extra weight artifact for a custom runtime — an MTP head, a
-  draft model — makes the whole thing fail to load with "Received N parameters
-  not in model". The store keeps everything; the LM Studio target installs only
-  what the index claims.
-- **Both hubs publish the same SHA-256** for the same file, which is what makes
-  failing over mid-download between mirrors safe.
-- **HuggingFace's top-level `oid` is a git SHA-1**, not a content hash. Only
-  `lfs.oid` is usable for verification.
-- **Searching a hub for "qwen3" buries the GGUF builds.** The transformers
-  originals win on downloads by an order of magnitude. HuggingFace can filter by
-  a `gguf` or `mlx` tag — two separate queries — while ModelScope has no tag
-  filter but names its repos `*-GGUF`, so the same intent is honoured
-  differently per source.
-- **ModelScope's search is a `PUT` with a JSON body**, and hits arrive under
-  `Data.Model.Models` with the author in `Path` and the repo in `Name`. It is
-  also the only one that answers a Chinese query like 通义千问.
-- **The fastest mirror is not the one you would guess.** On the machine this was
-  built on, ModelScope measured 8× faster than hf-mirror. Silo samples real
-  bytes before choosing rather than trusting configuration order.
-- **LM Studio's layout is exactly `models/{author}/{repo}/{file}`.** One level
-  off and the model does not appear, with nothing logged to say why.
-- **Sharded models must be downloaded as a set,** and vision models need their
-  `mmproj-*.gguf` companion. Both are grouped into a single selectable variant.
-- **Safetensors repos often ship several whole models as sibling folders** —
-  `2-bit/`, `4-bit/`, `8-bit/` — each with its own config and shard index.
-  They are separate variants; summing them claims the repo is four times its
-  real size. Since LM Studio wants a flat directory, the folder is folded into
-  the installed name so two quantisations can coexist, and the folder's own
-  metadata wins over the repository root's copy.
-- **`dart:io` has no hard-link API** — `Link` is `symlink(2)`. Silo shells out to
-  `ln` and falls back to copying across volumes.
-- **Deleting a blob a tool still hard-links frees nothing.** The inode survives
-  through the other link and the file keeps working where it was linked, so
-  `gc` reports freed and retained bytes separately, and `rm` unlinks first —
-  otherwise the space could never actually come back.
-- **Downloading two models at once is slower than doing them in turn.** They
-  split the same pipe, and mirrors throttle per client. The queue is serial on
-  purpose.
-- **The App Sandbox hides the real home directory.** A sandboxed `$HOME` points
-  into the app's container, so the app can neither see `~/.lmstudio` nor
-  hard-link into it. It is off, which rules out the Mac App Store.
+The engine in the middle knows nothing about models. It moves bytes from a URL
+into a file. Sources and targets are plugins on either side, so adding a mirror
+never means touching a target, and adding a tool never means touching the
+downloader.
 
-## License
+```
+packages/core    engine, sources, store, targets — zero runtime dependencies
+packages/cli     the `silo` command
+apps/silo        Flutter macOS app
+```
+
+`silo_core` deliberately has no package dependencies: `dart:io` and a hand-rolled
+streaming SHA-256, pinned against NIST vectors and the system `shasum`.
+
+## 🚢 Releasing
+
+Version numbers come out of the commit history, so commits follow
+[Conventional Commits](https://conventionalcommits.org). One product, one
+number: `silo_core`, `silo_cli` and the app are versioned in lockstep.
+
+```bash
+dart run melos run release   # bump the workspace, write the changelogs, tag v<version>
+git push --follow-tags       # the tag is what builds the DMG and cuts the release
+```
+
+```
+Local                                    GitHub Actions
+─────────────────────────────────        ─────────────────────────────────
+conventional commits
+        │
+        ▼
+melos run release
+  ├ melos version --all            one version across all three packages,
+  │                                dependents' constraints move with it
+  ├ CHANGELOG × 4                  one per package, plus the root summary
+  ├ chore(release) commit
+  └ git tag v0.1.1
+        │
+        ▼
+git push --follow-tags ──────────▶  on: push tags ['v*']
+                                           │
+                                       check      analyze + test
+                                           │
+                                       meta       version read off the tag,
+                                           │      checked against the pubspec
+                                ┌──────────┴──────────┐
+                              cli                    app
+                       arm64 + x86_64          flutter build macos
+                       → lipo → tar.gz         → hdiutil → DMG
+                                └──────────┬──────────┘
+                                        release
+                                SHA256SUMS + gh release create
+```
+
+melos stops at the tag. Everything past it — the universal CLI binary, the DMG,
+the checksums, the release itself — is the workflow's job.
+
+`melos run analyze` and `melos run test` are exactly what CI runs, so they are
+the two commands worth running before pushing.
+
+## 📄 License
 
 Not yet chosen. Intended to be open source.
+
+## 🖨 About Me
+
+- GitHub: [https://github.com/LinXunFeng](https://github.com/LinXunFeng)
+- Email: [linxunfeng@yeah.net](mailto:linxunfeng@yeah.net)
+- Blogs: 
+  - 全栈行动: [https://fullstackaction.com](https://fullstackaction.com)
+  - 掘金: [https://juejin.cn/user/1820446984512392](https://juejin.cn/user/1820446984512392) 
+
+<img height="267.5" width="481.5" src="https://github.com/LinXunFeng/LinXunFeng/raw/master/static/img/FSAQR.png"/>
