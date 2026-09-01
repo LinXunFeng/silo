@@ -32,12 +32,13 @@ melos:
     release:
       description: >-
         Version the workspace from the conventional commits since the last
-        release, write the changelogs, and tag it v<version> — melos tags each
-        package (silo_core-v0.1.1+2), which is not what the release workflow
-        listens for, so it does the tagging itself.
+        release, write the changelogs, and tag it v<version>. melos tags each
+        package too (silo_core-v0.1.1+2) — those are the anchors it reads to
+        find where the last release ended, and it is the release workflow that
+        wants a plain v<version>, which melos does not produce.
       run: |
         set -e
-        dart run melos version --all --no-git-tag-version
+        dart run melos version --all
         git log -1 --pretty=%s | grep -q '^chore(release)' || {
           echo 'No release commit was made, so there is nothing to tag.' >&2
           exit 1
