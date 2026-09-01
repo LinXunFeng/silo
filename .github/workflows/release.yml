@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp, e.g. 0.1.0. Blank builds 0.0.0-dev.<sha> and skips the release.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.1'
+
+jobs:
+  # A failing check blocks the release.
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      build_name: ${{ steps.v.outputs.build_name }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: v
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            publish=true
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            version="${{ inputs.version }}"
+            publish=false
+          else
+            version="0.0.0-dev.${GITHUB_SHA::7}"
+            publish=false
+          fi
+          # CFBundleShortVersionString only accepts x.y.z — drop any dev suffix.
+          build_name=$(echo "$version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+          echo "version=$version"       >> "$GITHUB_OUTPUT"
+          echo "build_name=$build_name" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish"  >> "$GITHUB_OUTPUT"
+          echo "Version $version — publish a release: $publish" >> "$GITHUB_STEP_SUMMARY"
+
+      # melos owns the version numbers; a hand-made tag that disagrees with the
+      # workspace would ship a DMG whose version contradicts the changelog.
+      - name: Tag agrees with the versioned workspace
+        if: steps.v.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          workspace=$(grep -m1 '^version:' packages/core/pubspec.yaml | cut -d' ' -f2 | cut -d+ -f1)
+          tag="${{ steps.v.outputs.version }}"
+          if [ "$workspace" != "$tag" ]; then
+            echo "Tag v$tag does not match the workspace version $workspace." >&2
+            echo "Cut releases with 'melos run release' rather than tagging by hand." >&2
+            exit 1
+          fi
+          echo "Workspace is at $workspace, matching the tag."
+
+  # ── silo CLI ──────────────────────────────────────────────────────────────
+  # dart compile exe only emits the host architecture, so each runner builds its
+  # own slice and lipo merges them below.
+  cli:
+    needs: [check, meta]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15         # Apple silicon
+            arch: arm64
+          - runner: macos-15-intel   # Intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # The workspace contains silo_app, so dependencies need flutter's pub.
+      - run: flutter pub get
+      - name: Compile silo
+        run: |
+          set -euo pipefail
+          dart compile exe packages/cli/bin/silo.dart -o silo
+          file silo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.arch }}
+          path: silo
+          retention-days: 7
+
+  cli-universal:
+    needs: [meta, cli]
+    runs-on: macos-15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          path: slices
+      - name: lipo
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          lipo -create -output dist/silo slices/cli-arm64/silo slices/cli-x86_64/silo
+          chmod +x dist/silo
+          lipo -info dist/silo
+          # tar preserves the executable bit — a bare asset downloads as 644.
+          tar -czf "silo-${{ needs.meta.outputs.version }}-macos-universal.tar.gz" -C dist silo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-cli
+          path: silo-*.tar.gz
+
+  # ── macOS App ─────────────────────────────────────────────────────────────
+  app:
+    needs: [check, meta]
+    runs-on: macos-15
+    timeout-minutes: 40
+    outputs:
+      app_name: ${{ steps.dmg.outputs.app_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      - name: Build macOS release
+        working-directory: apps/silo
+        run: |
+          set -euo pipefail
+          flutter build macos --release \
+            --build-name "${{ needs.meta.outputs.build_name }}" \
+            --build-number "${{ github.run_number }}"
+
+      - name: Pack DMG
+        id: dmg
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          products=apps/silo/build/macos/Build/Products/Release
+          app=$(find "$products" -maxdepth 1 -name '*.app' | head -n1)
+          [ -n "$app" ] || { echo "no .app in $products"; exit 1; }
+          # Log the architectures so a non-universal build shows up in the log.
+          lipo -info "$app/Contents/MacOS/"* || true
+
+          stage=$(mktemp -d)
+          cp -R "$app" "$stage/"
+          ln -s /Applications "$stage/Applications"
+
+          mkdir -p dist
+          dmg="dist/Silo-${VERSION}-macOS.dmg"
+          # HFS+ rather than the default APFS, so older macOS versions can mount it
+          hdiutil create -volname "Silo ${VERSION}" -srcfolder "$stage" \
+            -ov -format UDZO -fs HFS+ "$dmg"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+          echo "app_name=$(basename "$app")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-app
+          path: dist/*.dmg
+
+  # ── Publish ──────────────────────────────────────────────────────────────
+  release:
+    needs: [meta, cli-universal, app]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          shasum -a 256 * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Release notes
+        run: |
+          cat > notes.md <<'EOF'
+          ## Install
+
+          **App** — open the DMG and drag ${{ needs.app.outputs.app_name }} into Applications.
+
+          These builds are neither signed nor notarised, so Gatekeeper blocks the
+          first launch. Strip the quarantine attribute to get past it:
+
+          ```bash
+          xattr -dr com.apple.quarantine "/Applications/${{ needs.app.outputs.app_name }}"
+          ```
+
+          **CLI**
+
+          ```bash
+          tar -xzf silo-*-macos-universal.tar.gz
+          xattr -d com.apple.quarantine silo 2>/dev/null || true
+          mv silo ~/bin/silo
+          ```
+
+          Checksums are in `SHA256SUMS.txt`.
+          EOF
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "Silo ${{ needs.meta.outputs.version }}" \
+            --notes-file notes.md \
+            --generate-notes \
+            dist/*
