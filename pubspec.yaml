@@ -37,7 +37,7 @@ melos:
         listens for, so it does the tagging itself.
       run: |
         set -e
-        melos version --all --no-git-tag-version
+        dart run melos version --all --no-git-tag-version
         git log -1 --pretty=%s | grep -q '^chore(release)' || {
           echo 'No release commit was made, so there is nothing to tag.' >&2
           exit 1
@@ -52,7 +52,10 @@ melos:
 
     test:
       description: Run every test in the workspace.
-      run: melos run test:dart && melos run test:flutter
+      # steps run through melos itself, so no `melos` on PATH is needed.
+      steps:
+        - test:dart
+        - test:flutter
 
     test:dart:
       description: Run the pure-Dart package tests.
