@@ -178,6 +178,7 @@ jobs:
         with:
           name: release-app
           path: dist/*.dmg
+          retention-days: 7
 
   # ── Publish ──────────────────────────────────────────────────────────────
   release:
