@@ -216,6 +216,16 @@ jobs:
           mv silo ~/bin/silo
           ```
 
+          **Installing this version once newer ones exist** — Homebrew digs the
+          CLI back out of the tap's git history:
+
+          ```bash
+          brew version-install linxunfeng/tap/silo ${{ needs.meta.outputs.version }}
+          ```
+
+          The app has no equivalent, because Homebrew cannot extract a cask from
+          history — download this page's DMG and install it by hand instead.
+
           Checksums are in `SHA256SUMS.txt`.
           EOF
 
