@@ -70,8 +70,10 @@ jobs:
           echo "Workspace is at $workspace, matching the tag."
 
   # ── silo CLI ──────────────────────────────────────────────────────────────
-  # dart compile exe only emits the host architecture, so each runner builds its
-  # own slice and lipo merges them below.
+  # dart compile exe only emits the host architecture, and its output cannot be
+  # lipo'd into a universal binary: the AOT snapshot is appended past the end of
+  # the Mach-O, and lipo copies only the Mach-O. So each arch ships its own
+  # tarball and the formula picks one.
   cli:
     needs: [check, meta]
     strategy:
@@ -94,37 +96,21 @@ jobs:
       # The workspace contains silo_app, so dependencies need flutter's pub.
       - run: flutter pub get
       - name: Compile silo
-        run: |
-          set -euo pipefail
-          dart compile exe packages/cli/bin/silo.dart -o silo
-          file silo
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cli-${{ matrix.arch }}
-          path: silo
-          retention-days: 7
-
-  cli-universal:
-    needs: [meta, cli]
-    runs-on: macos-15
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: cli-*
-          path: slices
-      - name: lipo
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          lipo -create -output dist/silo slices/cli-arm64/silo slices/cli-x86_64/silo
-          chmod +x dist/silo
-          lipo -info dist/silo
+          dart compile exe packages/cli/bin/silo.dart -o dist/silo
+          file dist/silo
+          dist/silo --help > /dev/null
           # tar preserves the executable bit — a bare asset downloads as 644.
-          tar -czf "silo-${{ needs.meta.outputs.version }}-macos-universal.tar.gz" -C dist silo
+          tar -czf "silo-${VERSION}-macos-${{ matrix.arch }}.tar.gz" -C dist silo
       - uses: actions/upload-artifact@v4
         with:
-          name: release-cli
+          name: release-cli-${{ matrix.arch }}
           path: silo-*.tar.gz
+          retention-days: 7
 
   # ── macOS App ─────────────────────────────────────────────────────────────
   app:
@@ -182,7 +168,7 @@ jobs:
 
   # ── Publish ──────────────────────────────────────────────────────────────
   release:
-    needs: [meta, cli-universal, app]
+    needs: [meta, cli, app]
     if: needs.meta.outputs.publish == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -204,6 +190,15 @@ jobs:
           cat > notes.md <<'EOF'
           ## Install
 
+          **Homebrew** — both come from the same tap, and it strips the
+          quarantine attribute for you:
+
+          ```bash
+          brew tap linxunfeng/tap
+          brew install --cask linxunfeng/tap/silo   # the app
+          brew install linxunfeng/tap/silo          # the CLI
+          ```
+
           **App** — open the DMG and drag ${{ needs.app.outputs.app_name }} into Applications.
 
           These builds are neither signed nor notarised, so Gatekeeper blocks the
@@ -213,10 +208,10 @@ jobs:
           xattr -dr com.apple.quarantine "/Applications/${{ needs.app.outputs.app_name }}"
           ```
 
-          **CLI**
+          **CLI** — one tarball per architecture; `uname -m` says which is yours.
 
           ```bash
-          tar -xzf silo-*-macos-universal.tar.gz
+          tar -xzf silo-*-macos-$(uname -m).tar.gz
           xattr -d com.apple.quarantine silo 2>/dev/null || true
           mv silo ~/bin/silo
           ```
@@ -234,3 +229,55 @@ jobs:
             --notes-file notes.md \
             --generate-notes \
             dist/*
+
+  # ── Homebrew ─────────────────────────────────────────────────────────────
+  # The tap holds the formula and the cask; this hands it the version and the
+  # three checksums, and it opens the bump PR on itself.
+  #
+  # TAP_APP_ID / TAP_APP_PRIVATE_KEY belong to a GitHub App installed on
+  # LinXunFeng/homebrew-tap with contents and pull-request write. GITHUB_TOKEN
+  # cannot be used: it never reaches outside this repository.
+  tap:
+    needs: [meta, release]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - id: sums
+        working-directory: dist
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          sum() { shasum -a 256 "$1" | cut -d' ' -f1; }
+          {
+            echo "cli_arm64=$(sum "silo-${VERSION}-macos-arm64.tar.gz")"
+            echo "cli_x86_64=$(sum "silo-${VERSION}-macos-x86_64.tar.gz")"
+            echo "app=$(sum "Silo-${VERSION}-macOS.dmg")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Token for the tap
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.TAP_APP_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          event-type: update-tap-silo
+          client-payload: |
+            {
+              "version": "${{ needs.meta.outputs.version }}",
+              "sha256_cli_arm64": "${{ steps.sums.outputs.cli_arm64 }}",
+              "sha256_cli_x86_64": "${{ steps.sums.outputs.cli_x86_64 }}",
+              "sha256_app": "${{ steps.sums.outputs.app }}"
+            }

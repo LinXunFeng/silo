@@ -81,6 +81,26 @@ project is. Silo is a library manager that happens to have a good downloader.
 
 ## 📦 Installing
 
+### Homebrew
+
+The app and the command come from the same tap, and it strips the quarantine
+attribute for you — nothing to do after installing.
+
+```bash
+brew tap linxunfeng/tap
+
+brew install --cask linxunfeng/tap/silo   # the app
+brew install linxunfeng/tap/silo          # the CLI
+```
+
+`--cask` is what tells the two apart: the formula and the cask share a name, so
+without it Homebrew installs the command.
+
+```bash
+brew upgrade --cask silo   # the app
+brew upgrade silo          # the CLI
+```
+
 ### App
 
 Download the `.dmg` from [Releases](https://github.com/LinXunFeng/silo/releases/latest)
@@ -95,10 +115,11 @@ xattr -dr com.apple.quarantine /Applications/Silo.app
 
 ### CLI
 
-Download `silo-<version>-macos-universal.tar.gz` from the same release:
+Download the tarball for your architecture from the same release — `uname -m`
+says which one is yours:
 
 ```bash
-tar -xzf silo-*-macos-universal.tar.gz
+tar -xzf silo-*-macos-$(uname -m).tar.gz
 xattr -d com.apple.quarantine silo 2>/dev/null || true
 mv silo ~/bin/silo
 ```
@@ -211,14 +232,26 @@ git push --follow-tags ──────────▶  on: push tags ['v*']
                                 ┌──────────┴──────────┐
                               cli                    app
                        arm64 + x86_64          flutter build macos
-                       → lipo → tar.gz         → hdiutil → DMG
+                       → a tar.gz each         → hdiutil → DMG
                                 └──────────┬──────────┘
                                         release
                                 SHA256SUMS + gh release create
+                                           │
+                                         tap        checksums →
+                                                    LinXunFeng/homebrew-tap,
+                                                    which opens its own bump PR
 ```
 
-melos stops at the tag. Everything past it — the universal CLI binary, the DMG,
-the checksums, the release itself — is the workflow's job.
+melos stops at the tag. Everything past it — the two CLI tarballs, the DMG, the
+checksums, the release itself, the Homebrew bump — is the workflow's job.
+
+A CLI tarball per architecture rather than one universal binary: `dart compile
+exe` appends the AOT snapshot past the end of the Mach-O, and `lipo` copies only
+the Mach-O, so a lipo'd `silo` starts up as the bare Dart VM.
+
+The `tap` job needs `TAP_APP_ID` and `TAP_APP_PRIVATE_KEY` — a GitHub App with
+contents and pull-request write on the tap. `GITHUB_TOKEN` cannot reach another
+repository.
 
 `melos run analyze` and `melos run test` are exactly what CI runs, so they are
 the two commands worth running before pushing.
