@@ -225,7 +225,7 @@ the two commands worth running before pushing.
 
 ## 📄 License
 
-Not yet chosen. Intended to be open source.
+[Apache License 2.0](LICENSE) © 2026 LinXunFeng
 
 ## 🖨 About Me
 

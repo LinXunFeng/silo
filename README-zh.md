@@ -216,7 +216,7 @@ melos 到打出 tag 为止就收工了。之后的事——通用二进制、DMG
 
 ## 📄 开源协议
 
-尚未选定，计划开源。
+[Apache License 2.0](LICENSE) © 2026 LinXunFeng
 
 ## 🖨 关于我
 
