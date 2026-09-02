@@ -22,6 +22,21 @@ LM Studio、Ollama、llama.cpp 装在同一台机器上，同一个 7B 模型就
 这个项目是因为在国内下载慢才动手的，但它不是一个下载器。Silo 是一个模型库管理器，
 只是顺带把下载做好了。
 
+## 📸 截图
+
+<table>
+  <tr>
+    <td width="33%"><img src="assets/screenshots/discover.png" alt="发现 —— 一个搜索框搜遍所有源" /></td>
+    <td width="33%"><img src="assets/screenshots/variants.png" alt="变体 —— 一个仓库的所有量化版本" /></td>
+    <td width="33%"><img src="assets/screenshots/library.png" alt="模型库 —— 只存一份，硬链接进每个工具" /></td>
+  </tr>
+  <tr>
+    <td align="center">一个搜索框一次搜遍所有源，GGUF 和 MLX 构建捞到前面，而不是埋在底下。</td>
+    <td align="center">粘贴精确的 <code>author/repo</code>，所有量化版本连同体积一并列出，分片会归成一个。</td>
+    <td align="center">磁盘上有什么、被链接进了哪些工具、去重又省下了多少。</td>
+  </tr>
+</table>
+
 ## ☕ 请我喝一杯咖啡
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=WeChat&nbsp;Pay&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)

@@ -23,6 +23,21 @@ tool sees an ordinary file; the disk gives up the space once.
 Downloading fast from China is the reason this started, but it is not what the
 project is. Silo is a library manager that happens to have a good downloader.
 
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="33%"><img src="assets/screenshots/discover.png" alt="Discover — one search box across every source" /></td>
+    <td width="33%"><img src="assets/screenshots/variants.png" alt="Variants — every quant of a repo, sized" /></td>
+    <td width="33%"><img src="assets/screenshots/library.png" alt="Library — one physical copy, hard-linked into every tool" /></td>
+  </tr>
+  <tr>
+    <td align="center">One search box, every source at once — GGUF and MLX builds surfaced instead of buried.</td>
+    <td align="center">Paste an exact <code>author/repo</code> and every quant is there, sized, with shards grouped into one.</td>
+    <td align="center">What is on disk, which tools it is linked into, and what deduplication gave back.</td>
+  </tr>
+</table>
+
 ## ☕ Support me
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=WeChat&nbsp;Pay&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)
