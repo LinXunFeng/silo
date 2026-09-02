@@ -77,6 +77,24 @@ LM Studio、Ollama、llama.cpp 装在同一台机器上，同一个 7B 模型就
 
 ## 📦 安装
 
+### Homebrew
+
+应用和命令都在同一个 tap 里，隔离属性也一并帮你去掉，装完直接能用。
+
+```bash
+brew tap linxunfeng/tap
+
+brew install --cask linxunfeng/tap/silo   # 应用
+brew install linxunfeng/tap/silo          # 命令行
+```
+
+formula 和 cask 同名，靠 `--cask` 区分，不加就装成命令行。
+
+```bash
+brew upgrade --cask silo   # 应用
+brew upgrade silo          # 命令行
+```
+
 ### 应用
 
 到 [Releases](https://github.com/LinXunFeng/silo/releases/latest) 下载 `.dmg`，
@@ -90,10 +108,10 @@ xattr -dr com.apple.quarantine /Applications/Silo.app
 
 ### 命令行
 
-在同一个 release 里下载 `silo-<version>-macos-universal.tar.gz`：
+在同一个 release 里下载对应架构的压缩包，`uname -m` 就是你的架构：
 
 ```bash
-tar -xzf silo-*-macos-universal.tar.gz
+tar -xzf silo-*-macos-$(uname -m).tar.gz
 xattr -d com.apple.quarantine silo 2>/dev/null || true
 mv silo ~/bin/silo
 ```
@@ -203,14 +221,25 @@ git push --follow-tags ──────────▶  on: push tags ['v*']
                                 ┌──────────┴──────────┐
                               cli                    app
                        arm64 + x86_64          flutter build macos
-                       → lipo → tar.gz         → hdiutil → DMG
+                       → 各出一个 tar.gz       → hdiutil → DMG
                                 └──────────┬──────────┘
                                         release
                                 SHA256SUMS + gh release create
+                                           │
+                                         tap        把校验和送到
+                                                    LinXunFeng/homebrew-tap，
+                                                    由它自己开升级 PR
 ```
 
-melos 到打出 tag 为止就收工了。之后的事——通用二进制、DMG、校验和、发布本身
-——全归 workflow。
+melos 到打出 tag 为止就收工了。之后的事——两个架构的命令行压缩包、DMG、校验和、
+发布本身、Homebrew 的版本更新——全归 workflow。
+
+命令行按架构分开发布，而不是合成一个通用二进制：`dart compile exe` 会把 AOT
+快照追加在 Mach-O 之后，而 `lipo` 只搬 Mach-O，合出来的 `silo` 一跑起来就只是
+个裸的 Dart VM。
+
+`tap` 这一步要 `TAP_APP_ID` 和 `TAP_APP_PRIVATE_KEY`，即一个对 tap 仓库有
+contents 和 pull request 写权限的 GitHub App。`GITHUB_TOKEN` 出不了本仓库。
 
 `melos run analyze` 和 `melos run test` 就是 CI 跑的那两条，推之前值得先跑一遍。
 
