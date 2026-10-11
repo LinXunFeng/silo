@@ -74,6 +74,7 @@ project is. Silo is a library manager that happens to have a good downloader.
 **Targets**
 
 - [x] LM Studio
+- [x] Draw Things (staged for its importer)
 - [ ] Ollama
 - [ ] llama.cpp
 - [ ] ComfyUI
@@ -164,6 +165,11 @@ silo scan
 # Take a model out of a tool but keep it in the store
 silo unlink Qwen/Qwen2.5-0.5B-Instruct-GGUF --from lmstudio
 
+# Image models and LoRAs for Draw Things: the single-file weights land in the
+# folder its import dialogs list, ready to pick and convert. Open Draw Things
+# once first, so its folder exists.
+silo add latent-consistency/lcm-lora-sdxl --to drawthings
+
 # Forget a model (unlinks it too), then reclaim the space
 silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
 silo gc
@@ -177,7 +183,7 @@ Useful global flags: `-j` connections (default 8), `--limit 5M` to throttle,
 ```
 Source                    Engine                    Target
 ──────────────────        ──────────────────        ──────────────────
-HuggingFace               range requests            LM Studio
+HuggingFace               range requests            LM Studio / Draw Things
 hf-mirror                 parallel chunks           llama.cpp
 ModelScope                resume via sidecar        Ollama
 (custom endpoints)        SHA-256 verification      ComfyUI / HF cache

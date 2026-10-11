@@ -25,6 +25,8 @@ CommandRunner<int> buildRunner() {
         help: 'Aggregate rate limit, e.g. 5M or 800k.', valueHelp: 'RATE')
     ..addOption('lmstudio-path',
         help: "Override LM Studio's models directory.")
+    ..addOption('drawthings-path',
+        help: 'Override the folder Draw Things imports models from.')
     ..addOption('hf-token',
         help: 'HuggingFace token for gated repositories. '
             'Defaults to \$HF_TOKEN.')

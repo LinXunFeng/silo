@@ -41,5 +41,6 @@ export 'src/store/catalog.dart'
     show Catalog, CatalogEntry, CatalogFile, LinkRecord;
 export 'src/target/download_target.dart'
     show DownloadTarget, InstallResult, TargetFile;
+export 'src/target/drawthings_target.dart' show DrawThingsTarget;
 export 'src/target/lmstudio_target.dart' show InstalledModel, LmStudioTarget;
 export 'src/util/sha256.dart' show Sha256, sha256OfFile, sha256OfFileDart;

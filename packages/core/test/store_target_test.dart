@@ -231,6 +231,92 @@ void main() {
     });
   });
 
+  group('DrawThingsTarget', () {
+    late DrawThingsTarget target;
+
+    setUp(() {
+      target = DrawThingsTarget(root: Directory('${tmp.path}/dt/Downloads'));
+    });
+
+    test('puts every file flat in the import folder, named by repo', () {
+      expect(
+        target.relativePathFor(
+          const ModelRef('stabilityai', 'sdxl-turbo'),
+          'sd_xl_turbo_1.0_fp16.safetensors',
+        ),
+        'stabilityai--sdxl-turbo--sd_xl_turbo_1.0_fp16.safetensors',
+      );
+      expect(
+        target.relativePathFor(
+          const ModelRef('Author', 'Repo'),
+          'fp8/model.safetensors',
+          directory: 'fp8',
+        ),
+        'Author--Repo--fp8--model.safetensors',
+      );
+    });
+
+    test('installs only the single files its importer can read', () async {
+      const ref = ModelRef('Author', 'Image-Model');
+      final files = <TargetFile>[
+        TargetFile(
+          sha256: await stage('w', bytes(2048, 20)),
+          relativePath: 'model.safetensors',
+        ),
+        TargetFile(
+          sha256: await stage('vae', bytes(1024, 21)),
+          relativePath: 'ae.safetensors',
+        ),
+        TargetFile(
+          sha256: await stage('cfg', bytes(64, 22)),
+          relativePath: 'config.json',
+        ),
+        TargetFile(
+          sha256: await stage('s1', bytes(512, 23)),
+          relativePath: 'model-00001-of-00002.safetensors',
+        ),
+        TargetFile(
+          sha256: await stage('gguf', bytes(512, 24)),
+          relativePath: 'model-Q4_K_M.gguf',
+        ),
+      ];
+
+      final result = await target.install(ref, files, store);
+
+      expect(result.hardLinkCount, 2);
+      final names = await target.root
+          .list()
+          .map((e) => e.uri.pathSegments.last)
+          .toList();
+      expect(names..sort(), <String>[
+        'Author--Image-Model--ae.safetensors',
+        'Author--Image-Model--model.safetensors',
+      ]);
+      expect(await target.scanStaged(), hasLength(2));
+    });
+
+    test('uninstall leaves the import folder itself in place', () async {
+      const ref = ModelRef('Author', 'Lora');
+      final files = <TargetFile>[
+        TargetFile(
+          sha256: await stage('l', bytes(1024, 25)),
+          relativePath: 'lora.safetensors',
+        ),
+      ];
+      await target.install(ref, files, store);
+
+      expect(await target.uninstall(ref, files), 1);
+      expect(target.root.existsSync(), isTrue);
+      expect(await target.scanStaged(), isEmpty);
+    });
+
+    test('an overridden folder is present once it exists', () async {
+      expect(await target.isPresent(), isFalse);
+      await target.root.create(recursive: true);
+      expect(await target.isPresent(), isTrue);
+    });
+  });
+
   group('Catalog', () {
     test('round-trips through JSON', () async {
       final file = File('${tmp.path}/catalog.json');

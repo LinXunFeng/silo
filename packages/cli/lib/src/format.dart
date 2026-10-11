@@ -70,3 +70,14 @@ class StatusLine {
     _sink.writeln(finalText);
   }
 }
+
+/// Reminds that a target which imports holds the files, not yet the model.
+String importHint(String targetName) =>
+    '  Only listed in $targetName so far: import it there before it can be '
+    'used.';
+
+/// Says which targets took none of a variant's files, rather than staying
+/// silent about them.
+String nothingLinkedNote(List<String> targetNames) =>
+    'Nothing linked into ${targetNames.join(', ')}: '
+    'this variant has no file it can use.';

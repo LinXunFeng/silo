@@ -64,6 +64,10 @@ class QueueJob {
   int? linkedVisibleBytes;
   int? linkedCostBytes;
 
+  /// Targets that took none of the variant's files — Draw Things has no use
+  /// for a GGUF. Not a failure, but not something to leave unsaid either.
+  List<String> unlinkedTargetIds = const <String>[];
+
   bool get isActive =>
       status == QueueJobStatus.queued || status == QueueJobStatus.running;
 

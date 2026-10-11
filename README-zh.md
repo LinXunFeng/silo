@@ -70,6 +70,7 @@ LM Studio、Ollama、llama.cpp 装在同一台机器上，同一个 7B 模型就
 **落盘目标**
 
 - [x] LM Studio
+- [x] Draw Things（放进它的导入列表）
 - [ ] Ollama
 - [ ] llama.cpp
 - [ ] ComfyUI
@@ -155,6 +156,10 @@ silo scan
 # 把模型从某个工具里撤掉，但仍留在库里
 silo unlink Qwen/Qwen2.5-0.5B-Instruct-GGUF --from lmstudio
 
+# 给 Draw Things 的图像模型和 LoRA：单文件权重会落到它导入对话框列出的
+# 文件夹里，选中即可转换。先打开一次 Draw Things，让它把文件夹建好
+silo add latent-consistency/lcm-lora-sdxl --to drawthings
+
 # 从库里移除（同时解除链接），再回收空间
 silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
 silo gc
@@ -168,7 +173,7 @@ silo gc
 ```
 源 (Source)               引擎 (Engine)             目标 (Target)
 ──────────────────        ──────────────────        ──────────────────
-HuggingFace               Range 请求                LM Studio
+HuggingFace               Range 请求                LM Studio / Draw Things
 hf-mirror                 并发分片                  llama.cpp
 ModelScope                旁车文件续传              Ollama
 (自定义端点)               SHA-256 校验              ComfyUI / HF 缓存

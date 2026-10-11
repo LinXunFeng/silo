@@ -56,6 +56,21 @@ abstract class DownloadTarget {
   /// is offered but not selected by default.
   Future<bool> isPresent() => root.exists();
 
+  /// Whether linking only stages the files, leaving the tool to import them.
+  ///
+  /// Most tools read a model where it lies, so a link is the whole job. One
+  /// that converts on import only lists what is linked as something to pick;
+  /// until the user imports it there, the tool has no model at all, and
+  /// saying nothing would make a finished link look broken.
+  bool get requiresImport => false;
+
+  /// Throws when this target cannot be linked into right now.
+  ///
+  /// Checked for every target before any of them is touched, so one that is
+  /// not ready fails the whole link up front instead of leaving the targets
+  /// listed before it linked and the ones after it not. Ready by default.
+  Future<void> ensureReady() async {}
+
   /// Path, relative to [root], where [fileName] from [ref] must live.
   ///
   /// [directory] is the repository subdirectory the variant came from, empty
@@ -83,6 +98,7 @@ abstract class DownloadTarget {
     bool overwrite = true,
     String directory = '',
   }) async {
+    await ensureReady();
     final wanted = await selectFiles(files, store);
     final links = <LinkResult>[];
     for (final file in wanted) {

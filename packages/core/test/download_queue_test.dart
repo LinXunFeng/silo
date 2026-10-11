@@ -160,6 +160,7 @@ void main() {
       sources: <ModelSource>[HuggingFaceSource(endpoint: hub.base)],
       targets: <DownloadTarget>[
         LmStudioTarget(root: Directory('${tmp.path}/.lmstudio/models')),
+        DrawThingsTarget(root: Directory('${tmp.path}/drawthings')),
       ],
       options: const DownloadOptions(
         connections: 2,
@@ -251,6 +252,16 @@ void main() {
           .existsSync(),
       isTrue,
     );
+  });
+
+  test('says so when a target has no use for the variant', () async {
+    queue.enqueue(ref: alpha, targetIds: <String>['lmstudio', 'drawthings']);
+    await until(() => queue.jobs.single.isFinished);
+
+    final job = queue.jobs.single;
+    expect(job.status, QueueJobStatus.completed);
+    expect(job.error, isNull);
+    expect(job.unlinkedTargetIds, <String>['drawthings']);
   });
 
   test('a queued job can be paused before it starts and resumed later',

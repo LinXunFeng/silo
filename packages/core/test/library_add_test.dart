@@ -164,6 +164,56 @@ void main() {
     expect(await dir.list().length, 4);
   });
 
+  test('a target that fails mid-link does not lose the links made before it',
+      () async {
+    await library.add(ref, probeSourceSpeed: false);
+    final both = SiloLibrary(
+      store: store,
+      sources: const <ModelSource>[],
+      targets: <DownloadTarget>[
+        target,
+        _FailingTarget(root: Directory('${tmp.path}/failing')),
+      ],
+    );
+    addTearDown(both.close);
+
+    await expectLater(
+      both.link(ref, targetIds: <String>['lmstudio', 'failing']),
+      throwsStateError,
+    );
+
+    // LM Studio got its files before the second target threw; they have to
+    // be on record, or `unlink` could never take them back out.
+    final catalog = await library.readCatalog();
+    expect(catalog.links.where((l) => l.targetId == 'lmstudio'), hasLength(4));
+  });
+
+  test('a target that is not ready stops the link before anything is touched',
+      () async {
+    await library.add(ref, probeSourceSpeed: false);
+    final both = SiloLibrary(
+      store: store,
+      sources: const <ModelSource>[],
+      targets: <DownloadTarget>[
+        target,
+        _FailingTarget(
+          root: Directory('${tmp.path}/failing'),
+          ready: false,
+        ),
+      ],
+    );
+    addTearDown(both.close);
+
+    await expectLater(
+      both.link(ref, targetIds: <String>['lmstudio', 'failing']),
+      throwsStateError,
+    );
+
+    // Named second, refused first: the outcome must not hang on the order.
+    expect(Directory('${target.root.path}/acme').existsSync(), isFalse);
+    expect((await library.readCatalog()).links, isEmpty);
+  });
+
   test('a second add of the same content downloads nothing', () async {
     await library.add(ref, probeSourceSpeed: false);
     final second = await library.add(ref, probeSourceSpeed: false);
@@ -252,6 +302,47 @@ void main() {
     expect(result.freedBytes, greaterThan(0));
     expect(result.retainedBytes, 0, reason: 'nothing was linked into a tool');
     expect(await store.listBlobs(), isEmpty);
+  });
+
+  test('overlapping links each keep their records', () async {
+    await library.add(ref, probeSourceSpeed: false);
+    final both = SiloLibrary(
+      store: store,
+      sources: const <ModelSource>[],
+      targets: <DownloadTarget>[
+        target,
+        _PlainTarget(root: Directory('${tmp.path}/plain')),
+      ],
+    );
+    addTearDown(both.close);
+
+    // Two switches flipped before either link has finished.
+    await Future.wait(<Future<Object?>>[
+      both.link(ref, targetIds: <String>['lmstudio']),
+      both.link(ref, targetIds: <String>['plain']),
+    ]);
+
+    final links = (await both.readCatalog()).links;
+    expect(links.where((l) => l.targetId == 'lmstudio'), hasLength(4));
+    expect(links.where((l) => l.targetId == 'plain'), hasLength(4));
+  });
+
+  test('only targets with a use for the variant are offered', () async {
+    await library.add(ref, probeSourceSpeed: false);
+    final both = SiloLibrary(
+      store: store,
+      sources: const <ModelSource>[],
+      targets: <DownloadTarget>[
+        target,
+        DrawThingsTarget(root: Directory('${tmp.path}/drawthings')),
+      ],
+    );
+    addTearDown(both.close);
+
+    final entry = (await both.readCatalog()).entries.single;
+    // A sharded MLX model: LM Studio loads it, Draw Things imports one file
+    // at a time and can take none of these.
+    expect(await both.usableTargetIds(entry), <String>{'lmstudio'});
   });
 
   group('unlink', () {
@@ -541,4 +632,59 @@ void main() {
     });
   });
 
+}
+
+/// A target whose install throws part-way through a link — or, when not
+/// [ready], refuses up front the way Draw Things does before the app has
+/// created its folder.
+class _FailingTarget extends DownloadTarget {
+  _FailingTarget({required this.root, this.ready = true});
+
+  @override
+  final Directory root;
+
+  final bool ready;
+
+  @override
+  String get id => 'failing';
+
+  @override
+  String get displayName => 'Failing';
+
+  @override
+  Future<void> ensureReady() async {
+    if (!ready) throw StateError('not ready');
+  }
+
+  @override
+  String relativePathFor(ModelRef ref, String fileName, {String directory = ''}) =>
+      fileName;
+
+  @override
+  Future<InstallResult> install(
+    ModelRef ref,
+    List<TargetFile> files,
+    BlobStore store, {
+    bool overwrite = true,
+    String directory = '',
+  }) async =>
+      throw StateError('disk said no');
+}
+
+/// A second ordinary target, to link one variant into two places at once.
+class _PlainTarget extends DownloadTarget {
+  _PlainTarget({required this.root});
+
+  @override
+  final Directory root;
+
+  @override
+  String get id => 'plain';
+
+  @override
+  String get displayName => 'Plain';
+
+  @override
+  String relativePathFor(ModelRef ref, String fileName, {String directory = ''}) =>
+      fileName;
 }

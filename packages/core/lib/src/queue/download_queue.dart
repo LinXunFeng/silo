@@ -311,10 +311,14 @@ class DownloadQueue {
       }
       job.linkedVisibleBytes = visible;
       job.linkedCostBytes = cost;
+      job.unlinkedTargetIds = <String>[
+        for (final install in results)
+          if (install.links.isEmpty) install.targetId,
+      ];
     } on Object catch (error) {
       // The download succeeded; only distribution failed. Say so without
       // discarding a model that is downloaded and verified.
-      job.error = 'linked nothing: $error';
+      job.error = 'linking failed: $error';
     }
   }
 

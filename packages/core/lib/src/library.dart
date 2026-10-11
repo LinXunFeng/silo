@@ -183,6 +183,23 @@ class SiloLibrary {
 
   Future<Catalog> readCatalog() => Catalog.read(catalogFile);
 
+  /// The tail of the chain every catalogue change waits its turn on.
+  Future<void> _catalogTail = Future<void>.value();
+
+  /// Runs [body] once every catalogue change before it has finished.
+  ///
+  /// Each change reads the catalogue, works on the disk for a while, and
+  /// writes the whole file back. Two overlapping — two models switched on in
+  /// quick succession, or a download finishing during a manual link — would
+  /// each write back what it read, and the later write would erase the
+  /// earlier one's records while its files stayed on disk with no way to
+  /// unlink them.
+  Future<T> _serialized<T>(Future<T> Function() body) {
+    final Future<T> result = _catalogTail.then((_) => body());
+    _catalogTail = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
+
   DownloadTarget? targetById(String id) {
     for (final t in targets) {
       if (t.id == id) return t;
@@ -430,9 +447,11 @@ class SiloLibrary {
       files: catalogFiles,
     );
 
-    final catalog = await readCatalog();
-    catalog.upsert(entry);
-    await catalog.write(catalogFile);
+    await _serialized(() async {
+      final catalog = await readCatalog();
+      catalog.upsert(entry);
+      await catalog.write(catalogFile);
+    });
 
     return AddResult(
       entry: entry,
@@ -544,6 +563,17 @@ class SiloLibrary {
     ModelRef ref, {
     required List<String> targetIds,
     String? variantName,
+  }) =>
+      _serialized(() => _link(
+            ref,
+            targetIds: targetIds,
+            variantName: variantName,
+          ));
+
+  Future<List<InstallResult>> _link(
+    ModelRef ref, {
+    required List<String> targetIds,
+    String? variantName,
   }) async {
     final catalog = await readCatalog();
     final List<CatalogEntry> candidates = catalog.forModel(ref);
@@ -560,62 +590,93 @@ class SiloLibrary {
             ),
           );
 
-    final results = <InstallResult>[];
+    // Every target is resolved and asked whether it is ready before any is
+    // touched, so a refusal never depends on the order targets were named in.
+    final chosen = <DownloadTarget>[];
     for (final String id in targetIds) {
       final DownloadTarget? target = targetById(id);
       if (target == null) {
         throw ArgumentError('unknown target: $id');
       }
+      await target.ensureReady();
+      chosen.add(target);
+    }
 
-      final files = <TargetFile>[
+    final results = <InstallResult>[];
+    // Written even when a later target throws: the files an earlier target
+    // already received are on disk, and unrecorded they could never be
+    // unlinked.
+    try {
+      for (final DownloadTarget target in chosen) {
+        final List<TargetFile> files = _targetFilesOf(entry);
+
+        // Fail before touching the filesystem if a blob went missing.
+        for (final f in files) {
+          if (!await store.has(f.sha256)) {
+            throw StateError(
+              'blob ${f.sha256} for ${f.relativePath} '
+              'is missing from the store',
+            );
+          }
+        }
+
+        final InstallResult result = await target.install(
+          entry.ref,
+          files,
+          store,
+          directory: entry.directory,
+        );
+        results.add(result);
+
+        // Linking converges the directory on what should be there. A file
+        // this library placed earlier and no longer wants — because the
+        // target has since learned to leave it out — is removed, so an
+        // install that was already wrong repairs itself on the next link
+        // rather than staying broken until someone deletes it by hand.
+        await _removeStaleLinks(
+          catalog: catalog,
+          entryKey: entry.key,
+          targetId: target.id,
+          keepPaths: result.links.map((l) => l.path).toSet(),
+        );
+
+        catalog.recordLinks(<LinkRecord>[
+          for (final l in result.links)
+            LinkRecord(
+              entryKey: entry.key,
+              targetId: target.id,
+              sha256: l.sha256,
+              path: l.path,
+              hardLinked: l.method != LinkMethod.copy,
+            ),
+        ]);
+      }
+
+    } finally {
+      await catalog.write(catalogFile);
+    }
+    return results;
+  }
+
+  /// The targets that would receive at least one file of [entry].
+  ///
+  /// A target may want none of a variant — Draw Things has no use for a GGUF —
+  /// and a choice that can only link nothing is better not offered.
+  Future<Set<String>> usableTargetIds(CatalogEntry entry) async {
+    final List<TargetFile> files = _targetFilesOf(entry);
+    final usable = <String>{};
+    for (final target in targets) {
+      if ((await target.selectFiles(files, store)).isNotEmpty) {
+        usable.add(target.id);
+      }
+    }
+    return usable;
+  }
+
+  List<TargetFile> _targetFilesOf(CatalogEntry entry) => <TargetFile>[
         for (final f in entry.files)
           TargetFile(sha256: f.sha256, relativePath: f.name),
       ];
-
-      // Fail before touching the filesystem if a blob went missing.
-      for (final f in files) {
-        if (!await store.has(f.sha256)) {
-          throw StateError(
-            'blob ${f.sha256} for ${f.relativePath} is missing from the store',
-          );
-        }
-      }
-
-      final InstallResult result = await target.install(
-        entry.ref,
-        files,
-        store,
-        directory: entry.directory,
-      );
-      results.add(result);
-
-      // Linking converges the directory on what should be there. A file this
-      // library placed earlier and no longer wants — because the target has
-      // since learned to leave it out — is removed, so an install that was
-      // already wrong repairs itself on the next link rather than staying
-      // broken until someone deletes it by hand.
-      await _removeStaleLinks(
-        catalog: catalog,
-        entryKey: entry.key,
-        targetId: target.id,
-        keepPaths: result.links.map((l) => l.path).toSet(),
-      );
-
-      catalog.recordLinks(<LinkRecord>[
-        for (final l in result.links)
-          LinkRecord(
-            entryKey: entry.key,
-            targetId: target.id,
-            sha256: l.sha256,
-            path: l.path,
-            hardLinked: l.method != LinkMethod.copy,
-          ),
-      ]);
-    }
-
-    await catalog.write(catalogFile);
-    return results;
-  }
 
   /// Deletes blobs no catalogued variant references.
   ///
@@ -715,6 +776,17 @@ class SiloLibrary {
   /// deleting something Silo did not create would be unforgivable for a tool
   /// that writes into other applications' directories.
   Future<List<UnlinkResult>> unlink(
+    ModelRef ref, {
+    String? variantName,
+    List<String>? targetIds,
+  }) =>
+      _serialized(() => _unlink(
+            ref,
+            variantName: variantName,
+            targetIds: targetIds,
+          ));
+
+  Future<List<UnlinkResult>> _unlink(
     ModelRef ref, {
     String? variantName,
     List<String>? targetIds,
@@ -827,9 +899,21 @@ class SiloLibrary {
     ModelRef ref, {
     String? variantName,
     bool unlinkFirst = true,
+  }) =>
+      _serialized(() => _forget(
+            ref,
+            variantName: variantName,
+            unlinkFirst: unlinkFirst,
+          ));
+
+  Future<bool> _forget(
+    ModelRef ref, {
+    String? variantName,
+    required bool unlinkFirst,
   }) async {
     if (unlinkFirst) {
-      await unlink(ref, variantName: variantName);
+      // Already inside the chain; going through [unlink] would wait on itself.
+      await _unlink(ref, variantName: variantName);
     }
 
     final catalog = await readCatalog();

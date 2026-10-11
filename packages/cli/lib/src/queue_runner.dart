@@ -84,10 +84,30 @@ class QueueRunner {
         }
         final visible = job.linkedVisibleBytes;
         final cost = job.linkedCostBytes;
+        // Without byte counts the link itself failed, and job.error says why;
+        // naming targets as linked or awaiting import would contradict it.
         if (visible != null && cost != null) {
-          _out.writeln('    linked into ${job.targetIds.join(', ')}: '
-              '${formatBytes(visible)} visible, '
-              '${cost == 0 ? '0 B' : formatBytes(cost)} extra on disk');
+          final linked = job.targetIds
+              .where((id) => !job.unlinkedTargetIds.contains(id))
+              .toList();
+          if (linked.isNotEmpty) {
+            _out.writeln('    linked into ${linked.join(', ')}: '
+                '${formatBytes(visible)} visible, '
+                '${cost == 0 ? '0 B' : formatBytes(cost)} extra on disk');
+          }
+          for (final String id in linked) {
+            final DownloadTarget? target = queue.library.targetById(id);
+            if (target != null && target.requiresImport) {
+              _out.writeln('  ${importHint(target.displayName)}');
+            }
+          }
+          if (job.unlinkedTargetIds.isNotEmpty) {
+            final names = <String>[
+              for (final id in job.unlinkedTargetIds)
+                queue.library.targetById(id)?.displayName ?? id,
+            ];
+            _out.writeln('    ${nothingLinkedNote(names)}');
+          }
         }
         if (job.error != null) _out.writeln('    ${job.error}');
       case QueueJobStatus.failed:

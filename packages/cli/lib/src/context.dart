@@ -28,6 +28,7 @@ class SiloContext {
     String? storePath,
     List<String>? sourceIds,
     String? lmStudioPath,
+    String? drawThingsPath,
     int connections = 8,
     int? rateLimit,
     String? hfToken,
@@ -62,6 +63,9 @@ class SiloContext {
       targets: <DownloadTarget>[
         LmStudioTarget(
           root: lmStudioPath == null ? null : Directory(lmStudioPath),
+        ),
+        DrawThingsTarget(
+          root: drawThingsPath == null ? null : Directory(drawThingsPath),
         ),
       ],
       options: DownloadOptions(

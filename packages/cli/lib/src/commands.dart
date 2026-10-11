@@ -18,6 +18,7 @@ abstract class SiloCommand extends Command<int> {
           ? null
           : global['source'] as List<String>,
       lmStudioPath: global['lmstudio-path'] as String?,
+      drawThingsPath: global['drawthings-path'] as String?,
       connections: int.parse(global['connections'] as String),
       rateLimit: _parseRate(global['limit'] as String?),
       hfToken: global['hf-token'] as String? ??
@@ -53,7 +54,7 @@ class AddCommand extends SiloCommand {
               'Defaults to Q4_K_M when present. Applies to every model given.')
       ..addOption('revision', help: 'Branch or tag to pull from.')
       ..addMultiOption('to',
-          help: 'Link into these targets once downloaded, e.g. lmstudio.',
+          help: 'Link into these targets once downloaded: lmstudio, drawthings.',
           defaultsTo: <String>['lmstudio'])
       ..addFlag('race',
           defaultsTo: true,
@@ -195,6 +196,12 @@ Future<void> _linkAndReport(
   );
   for (final result in results) {
     log('');
+    final DownloadTarget? target = library.targetById(result.targetId);
+    final String name = target?.displayName ?? result.targetId;
+    if (result.links.isEmpty) {
+      log(nothingLinkedNote(<String>[name]));
+      continue;
+    }
     log('Linked into ${result.targetId} at ${result.root.path}');
     for (final link in result.links) {
       final String how = switch (link.method) {
@@ -212,6 +219,9 @@ Future<void> _linkAndReport(
           '${formatBytes(result.bytesOnDisk)} copied '
           '(destination is on another volume)');
     }
+    if (target != null && target.requiresImport) {
+      log(importHint(name));
+    }
   }
 }
 
@@ -220,7 +230,7 @@ class LinkCommand extends SiloCommand {
   LinkCommand() {
     argParser
       ..addMultiOption('to',
-          help: 'Targets to link into, e.g. lmstudio.', defaultsTo: <String>['lmstudio'])
+          help: 'Targets to link into: lmstudio, drawthings.', defaultsTo: <String>['lmstudio'])
       ..addOption('variant', abbr: 'v', help: 'Which stored variant to link.');
   }
 
@@ -232,7 +242,8 @@ class LinkCommand extends SiloCommand {
       'Hard-link a stored model into one or more local tools.';
 
   @override
-  String get invocation => 'silo link <author/repo> --to lmstudio';
+  String get invocation =>
+      'silo link <author/repo> --to lmstudio|drawthings';
 
   @override
   Future<int> run() async {
@@ -604,7 +615,8 @@ class UnlinkCommand extends SiloCommand {
       'Remove a model from a tool, leaving it in the Silo store.';
 
   @override
-  String get invocation => 'silo unlink <author/repo> [--from lmstudio]';
+  String get invocation =>
+      'silo unlink <author/repo> [--from lmstudio|drawthings]';
 
   @override
   Future<int> run() async {
@@ -741,6 +753,18 @@ class ScanCommand extends SiloCommand {
           log('  ${model.ref.id.padRight(52)} '
               '${formatBytes(model.totalSize).padLeft(10)} '
               '${model.files.length} file(s)');
+        }
+      }
+      if (target is DrawThingsTarget) {
+        // Draw Things converts on import, so what it has is not a list of
+        // repositories — only the files waiting to be imported can be named.
+        final staged = await target.scanStaged();
+        if (staged.isEmpty) {
+          log('  (nothing waiting to be imported)');
+        }
+        for (final file in staged) {
+          log('  ${file.uri.pathSegments.last.padRight(52)} '
+              '${formatBytes(await file.length()).padLeft(10)}');
         }
       }
       log('');
