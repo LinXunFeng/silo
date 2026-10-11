@@ -5,248 +5,135 @@
 <h1 align="center">Silo</h1>
 
 <p align="center">
+  <b>macOS 上的本地模型库。下载一次，处处可用。</b>
+</p>
+
+<p align="center">
   <a href="https://github.com/LinXunFeng/"><img src="https://img.shields.io/badge/author-LinXunFeng-blue.svg?style=flat-square&logo=Iconify" alt="author"></a>
   <a href="https://github.com/LinXunFeng/silo/releases/latest"><img src="https://img.shields.io/github/v/release/LinXunFeng/silo?style=flat-square&logo=github" alt="release"></a>
   <a href="https://github.com/LinXunFeng/silo"><img src="https://img.shields.io/github/stars/LinXunFeng/silo?style=flat-square&logo=github" alt="stars"></a>
   <img src="https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey?style=flat-square&logo=apple" alt="platform">
 </p>
 
-语言: 中文 | [English](README.md)
+Language: 中文 | [English](README.md)
 
-macOS 上的本地模型库。**下载一次，处处链接。**
+每个本地 AI 应用都有自己的模型目录，同一个模型装了几个应用就要在磁盘上存几份。
+Silo 让每个模型**只存一份**，再链接给所有用到它的工具：一个 5 GB 的模型，不管几个
+工具在用，都只占 5 GB。
 
-LM Studio、Ollama、llama.cpp 装在同一台机器上，同一个 7B 模型就得存三份——15 GB
-的空间装 5 GB 的权重。Silo 把实体只留一份在内容寻址的仓库里，再硬链接进各个工具
-的目录。每个工具看到的都是一个普通文件，而磁盘只付一次钱。
+找模型、下模型也一并省心：一个搜索框搜遍 HuggingFace 和它的镜像，自动挑最快的
+镜像，断网了也能接着下。
 
-这个项目是因为在国内下载慢才动手的，但它不是一个下载器。Silo 是一个模型库管理器，
-只是顺带把下载做好了。
+## ☕ 请我喝一杯咖啡
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=微信收款码&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)
+
+微信技术交流群请看: [【微信群说明】](https://mp.weixin.qq.com/s/JBbMstn0qW6M71hh-BRKzw)
 
 ## 📸 截图
 
 <table>
   <tr>
-    <td width="33%"><img src="assets/screenshots/discover.png" alt="发现 —— 一个搜索框搜遍所有源" /></td>
-    <td width="33%"><img src="assets/screenshots/variants.png" alt="变体 —— 一个仓库的所有量化版本" /></td>
-    <td width="33%"><img src="assets/screenshots/library.png" alt="模型库 —— 只存一份，硬链接进每个工具" /></td>
+    <td width="33%"><img src="assets/screenshots/discover.png" alt="发现" /></td>
+    <td width="33%"><img src="assets/screenshots/variants.png" alt="变体" /></td>
+    <td width="33%"><img src="assets/screenshots/library.png" alt="模型库" /></td>
   </tr>
   <tr>
-    <td align="center">一个搜索框一次搜遍所有源，GGUF 和 MLX 构建捞到前面，而不是埋在底下。</td>
-    <td align="center">粘贴精确的 <code>author/repo</code>，所有量化版本连同体积一并列出，分片会归成一个。</td>
-    <td align="center">磁盘上有什么、被链接进了哪些工具、去重又省下了多少。</td>
+    <td align="center"><b>发现</b><br/>一次搜遍所有源</td>
+    <td align="center"><b>变体</b><br/>一个模型的所有量化版本及体积</td>
+    <td align="center"><b>模型库</b><br/>有哪些模型、链接到了哪里、省了多少空间</td>
   </tr>
 </table>
 
-## ☕ 请我喝一杯咖啡
+## ✨ 特点
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=WeChat&nbsp;Pay&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)
-
-## 🔨 功能点
-
-- [x] **磁盘上只存一份。** 内容寻址的仓库存下实体，再硬链接进每个需要它的工具——
-      同一个 inode，不占额外空间，各工具读到的仍然是普通文件。
-- [x] **为慢网络写的下载器。** Range 分片并发、重启和关机后都能续传、SHA-256
-      校验、限速。
-- [x] **镜像之间能故障转移。** 同一个文件在两个 hub 上公布的摘要是一致的，所以
-      下载中途换镜像仍然校验得过。
-- [x] **实测出最快的镜像。** 不是按配置顺序猜，而是先采样真实字节再决定。
-- [x] **一个搜索框搜遍所有源。** 关键字一次搜全部源，并把 GGUF 和 MLX 构建捞到
-      前面，而不是埋在底下。
-- [x] **分片模型不会被拆散。** 多分片权重和视觉模型需要的 `mmproj-*.gguf` 会归成
-      一个可选条目。
-- [x] **串行队列。** 同时下两个模型比一个个下更慢，所以队列一次只跑一个——而且
-      Ctrl-C 之后还在。
-- [x] **窗口和终端都有。** macOS 应用和 `silo` 命令共用同一套引擎、同一个库。
+- 💾 **只存一份，所有工具共用。** 每个模型只在磁盘上存一份，再共享给每个用到它的
+  工具。没有重复占用，工具那边也察觉不到区别。
+- 🔍 **一个搜索框搞定。** 同时搜索 HuggingFace 和 ModelScope，或者直接
+  粘贴 `author/repo`，列出所有量化版本和体积。
+- ⚡ **实测最快的镜像。** 下载前先测速再选镜像，某个镜像下载失败会自动换下一个。
+- 🔁 **下载不怕中断。** 暂停、退出、重启电脑之后都能接着下，每个文件下完都会校验。
+- 🧩 **模型不会被拆散。** 分片权重和视觉模型需要的附加文件会归成一个条目。
+- 🖥 **应用和命令行都有。** 原生 macOS 应用和 `silo` 命令共用同一个模型库。
 
 ## 🎀 支持
 
-**源**
-
-- [x] HuggingFace
-- [x] hf-mirror
-- [x] ModelScope
-- [x] 自定义端点
-
-**落盘目标**
-
-- [x] LM Studio
-- [x] Draw Things（放进它的导入列表）
-- [ ] Ollama
-- [ ] llama.cpp
-- [ ] ComfyUI
-- [ ] HuggingFace 缓存 (transformers / vLLM)
+| 下载源 | 链接到 |
+| --- | --- |
+| ✅ HuggingFace | ✅ LM Studio |
+| ✅ hf-mirror | ✅ Draw Things |
+| ✅ ModelScope | 🚧 Ollama |
+| ✅ 自定义端点 | 🚧 llama.cpp |
+| | 🚧 ComfyUI |
+| | 🚧 HuggingFace 缓存 (transformers / vLLM) |
 
 ## 📦 安装
 
-### Homebrew
-
-应用和命令都在同一个 tap 里，隔离属性也一并帮你去掉，装完直接能用。
+使用 [Homebrew](https://brew.sh)：
 
 ```bash
 brew tap linxunfeng/tap
-
 brew install --cask linxunfeng/tap/silo   # 应用
 brew install linxunfeng/tap/silo          # 命令行
 ```
 
-formula 和 cask 同名，靠 `--cask` 区分，不加就装成命令行。
+<details>
+<summary>手动下载</summary>
+
+到 [Releases](https://github.com/LinXunFeng/silo/releases/latest) 下载 `.dmg`（应用），
+或对应架构的 `.tar.gz`（命令行，`uname -m` 可以查看架构）。
+
+产物没有经过公证，首次打开会被 macOS 拦下，去掉隔离属性即可：
 
 ```bash
-brew upgrade --cask silo   # 应用
-brew upgrade silo          # 命令行
-```
-
-### 应用
-
-到 [Releases](https://github.com/LinXunFeng/silo/releases/latest) 下载 `.dmg`，
-把 Silo 拖进「应用程序」。
-
-产物没有签名也没有公证，首次打开会被 Gatekeeper 拦下，去掉隔离属性即可：
-
-```bash
+# 应用：先把 Silo 拖进「应用程序」
 xattr -dr com.apple.quarantine /Applications/Silo.app
-```
 
-### 命令行
-
-在同一个 release 里下载对应架构的压缩包，`uname -m` 就是你的架构：
-
-```bash
+# 命令行
 tar -xzf silo-*-macos-$(uname -m).tar.gz
 xattr -d com.apple.quarantine silo 2>/dev/null || true
-mv silo ~/bin/silo
+mv silo ~/bin/silo   # 或 PATH 中的任意目录
 ```
 
-或者从源码编译：
+用 Homebrew 安装会自动处理这一步。
+
+</details>
+
+## 🚀 快速上手
+
+**应用：** 先在「分发目标」里打开你在用的工具，然后用关键字或 `author/repo` 搜索模型，选一个版本下载，下完会自动链接到这些工具。
+
+**命令行：**
 
 ```bash
-dart pub get
-dart compile exe packages/cli/bin/silo.dart -o ~/bin/silo
+silo search qwen3 coder                      # 搜索模型
+silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF     # 下载并链接到 LM Studio
+silo ls                                      # 查看模型库和省下的空间
 ```
 
-## 🚀 使用
-
-下面这些事，应用用窗口也都能做。它只有一个搜索框，关键字和精确的 `author/repo`
-都收——前者给你一列可以点进去的结果，后者直接进变体列表。
+<details>
+<summary>更多命令</summary>
 
 ```bash
-# 不知道准确的 id？一次搜遍所有源。
-# 默认只显示 GGUF 和 MLX 仓库，要看其余的加 --all。
-silo search qwen3 coder
-
-# 这个仓库有哪些东西，哪些镜像有它？
-silo inspect Qwen/Qwen2.5-0.5B-Instruct-GGUF
-
-# 此刻哪个镜像真的最快？
-silo sources --probe Qwen/Qwen2.5-0.5B-Instruct-GGUF
-
-# 拉进库（默认 Q4_K_M）并硬链接进 LM Studio。
-# 可以一次给多个，它们会排队，一次跑一个。
-silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF Qwen/Qwen2.5-1.5B-Instruct-GGUF
-
-# Ctrl-C 是安全的：队列和已下载的字节都还在
-silo queue --resume
-
-# 库里有什么，去重省下了多少？
-silo ls
-
-# 我的工具里已经有哪些模型了？
-silo scan
-
-# 把模型从某个工具里撤掉，但仍留在库里
-silo unlink Qwen/Qwen2.5-0.5B-Instruct-GGUF --from lmstudio
-
-# 给 Draw Things 的图像模型和 LoRA：单文件权重会落到它导入对话框列出的
-# 文件夹里，选中即可转换。先打开一次 Draw Things，让它把文件夹建好
-silo add latent-consistency/lcm-lora-sdxl --to drawthings
-
-# 从库里移除（同时解除链接），再回收空间
-silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
-silo gc
+silo inspect <author/repo>              # 查看仓库里的文件和可选版本
+silo sources --probe <author/repo>      # 测一下此刻哪个镜像最快
+silo add <repo> <repo> ...              # 一次添加多个，排队逐个下载
+silo queue --resume                     # Ctrl-C 之后继续下载
+silo add <repo> --to drawthings         # 把图像模型或 LoRA 送进 Draw Things
+silo scan                               # 查看各工具里已有的模型
+silo unlink <repo> --from lmstudio      # 从某个工具移除，但保留在库里
+silo rm <repo>                          # 从库里移除
+silo gc                                 # 回收磁盘空间
 ```
 
-常用全局参数：`-j` 连接数（默认 8）、`--limit 5M` 限速、`--source modelscope`
-指定镜像、`--store` 换个位置放库。
+全局参数：`-j 8` 连接数、`--limit 5M` 限速、`--source modelscope` 指定镜像、
+`--store <dir>` 更换模型库位置。完整列表见 `silo help`。
 
-## 🧱 架构
+</details>
 
-```
-源 (Source)               引擎 (Engine)             目标 (Target)
-──────────────────        ──────────────────        ──────────────────
-HuggingFace               Range 请求                LM Studio / Draw Things
-hf-mirror                 并发分片                  llama.cpp
-ModelScope                旁车文件续传              Ollama
-(自定义端点)               SHA-256 校验              ComfyUI / HF 缓存
-                          限速
-```
+## 🛠 开发
 
-中间的引擎对模型一无所知，它只负责把字节从一个 URL 搬进一个文件。源和目标都是它
-两侧的插件，所以加一个镜像不用碰任何目标，加一个工具也不用碰下载器。
-
-```
-packages/core    引擎、源、仓库、目标 —— 零运行时依赖
-packages/cli     silo 命令
-apps/silo        Flutter macOS 应用
-```
-
-`silo_core` 刻意不带任何包依赖：只用 `dart:io`，SHA-256 是手写的流式实现，拿
-NIST 测试向量和系统的 `shasum` 对过。
-
-## 🚢 发版
-
-版本号是从提交历史算出来的，所以提交遵循
-[Conventional Commits](https://conventionalcommits.org)。一个产品一个号：
-`silo_core`、`silo_cli` 和应用同步版本。
-
-```bash
-dart run melos run release   # 升版本、写 changelog、打 v<version> 标签
-git push --follow-tags       # 标签才是构建 DMG 和发布的触发点
-```
-
-```
-本地                                     GitHub Actions
-─────────────────────────────────        ─────────────────────────────────
-写 conventional commits
-        │
-        ▼
-melos run release
-  ├ melos version --all            三个包同步到同一个版本号，
-  │                                依赖方的约束跟着改
-  ├ CHANGELOG × 4                  每包一份，外加根目录的汇总
-  ├ chore(release) commit
-  └ git tag v0.1.1
-        │
-        ▼
-git push --follow-tags ──────────▶  on: push tags ['v*']
-                                           │
-                                       check      analyze + test
-                                           │
-                                       meta       从 tag 取版本号，
-                                           │      再和 pubspec 核对
-                                ┌──────────┴──────────┐
-                              cli                    app
-                       arm64 + x86_64          flutter build macos
-                       → 各出一个 tar.gz       → hdiutil → DMG
-                                └──────────┬──────────┘
-                                        release
-                                SHA256SUMS + gh release create
-                                           │
-                                         tap        把校验和送到
-                                                    LinXunFeng/homebrew-tap，
-                                                    由它自己开升级 PR
-```
-
-melos 到打出 tag 为止就收工了。之后的事——两个架构的命令行压缩包、DMG、校验和、
-发布本身、Homebrew 的版本更新——全归 workflow。
-
-命令行按架构分开发布，而不是合成一个通用二进制：`dart compile exe` 会把 AOT
-快照追加在 Mach-O 之后，而 `lipo` 只搬 Mach-O，合出来的 `silo` 一跑起来就只是
-个裸的 Dart VM。
-
-`tap` 这一步要 `TAP_APP_ID` 和 `TAP_APP_PRIVATE_KEY`，即一个对 tap 仓库有
-contents 和 pull request 写权限的 GitHub App。`GITHUB_TOKEN` 出不了本仓库。
-
-`melos run analyze` 和 `melos run test` 就是 CI 跑的那两条，推之前值得先跑一遍。
+架构、从源码编译和发版流程见 [docs/development.md](docs/development.md)（英文）。
 
 ## 📄 开源协议
 

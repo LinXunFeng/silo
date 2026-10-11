@@ -5,6 +5,10 @@
 <h1 align="center">Silo</h1>
 
 <p align="center">
+  <b>A local model library for macOS. Download once, link everywhere.</b>
+</p>
+
+<p align="center">
   <a href="https://github.com/LinXunFeng/"><img src="https://img.shields.io/badge/author-LinXunFeng-blue.svg?style=flat-square&logo=Iconify" alt="author"></a>
   <a href="https://github.com/LinXunFeng/silo/releases/latest"><img src="https://img.shields.io/github/v/release/LinXunFeng/silo?style=flat-square&logo=github" alt="release"></a>
   <a href="https://github.com/LinXunFeng/silo"><img src="https://img.shields.io/github/stars/LinXunFeng/silo?style=flat-square&logo=github" alt="stars"></a>
@@ -13,254 +17,134 @@
 
 Language: English | [中文](README-zh.md)
 
-A local model library for macOS. **Download once, link everywhere.**
+Every local AI app keeps its own folder of models, so the same model ends up on
+disk once per app. Silo keeps **one copy** of each model and links it into
+every tool that uses it, so a 5 GB model takes 5 GB however many tools use it.
 
-Running LM Studio, Ollama and llama.cpp side by side means storing the same 7B
-model three times — 15 GB to hold 5 GB of weights. Silo keeps one physical copy
-in a content-addressed store and hard-links it into each tool's directory. Every
-tool sees an ordinary file; the disk gives up the space once.
-
-Downloading fast from China is the reason this started, but it is not what the
-project is. Silo is a library manager that happens to have a good downloader.
-
-## 📸 Screenshots
-
-<table>
-  <tr>
-    <td width="33%"><img src="assets/screenshots/discover.png" alt="Discover — one search box across every source" /></td>
-    <td width="33%"><img src="assets/screenshots/variants.png" alt="Variants — every quant of a repo, sized" /></td>
-    <td width="33%"><img src="assets/screenshots/library.png" alt="Library — one physical copy, hard-linked into every tool" /></td>
-  </tr>
-  <tr>
-    <td align="center">One search box, every source at once — GGUF and MLX builds surfaced instead of buried.</td>
-    <td align="center">Paste an exact <code>author/repo</code> and every quant is there, sized, with shards grouped into one.</td>
-    <td align="center">What is on disk, which tools it is linked into, and what deduplication gave back.</td>
-  </tr>
-</table>
+It also makes getting models painless: one search box across HuggingFace and
+its mirrors, the fastest mirror picked for you, and downloads that survive a
+dropped connection.
 
 ## ☕ Support me
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T4JKVRP) [![wechat](https://img.shields.io/static/v1?label=WeChat&message=WeChat&nbsp;Pay&color=brightgreen&style=for-the-badge&logo=WeChat)](https://cdn.jsdelivr.net/gh/FullStackAction/PicBed@resource20220417121922/image/202303181116760.jpeg)
 
-## 🔨 Feature
+Chat: [Join WeChat group](https://mp.weixin.qq.com/s/JBbMstn0qW6M71hh-BRKzw)
 
-- [x] **One copy on disk.** A content-addressed store holds the bytes once and
-      hard-links them into every tool that wants them — same inode, no extra
-      space, and each tool still sees an ordinary file.
-- [x] **A downloader built for slow links.** Ranged parallel chunks, resume
-      across restarts and reboots, SHA-256 verification, rate limiting.
-- [x] **Mirrors that fail over.** Both hubs publish the same digest for the same
-      file, so a download can switch mirrors mid-flight and still verify.
-- [x] **Picks the fastest mirror by measuring it.** Not by trusting the order
-      they are listed in — real bytes are sampled before choosing.
-- [x] **One search box for every source.** Keyword search across all sources at
-      once, with the GGUF and MLX builds surfaced instead of buried.
-- [x] **Sharded models stay whole.** Multi-part weights and the `mmproj-*.gguf`
-      a vision model needs are grouped into one selectable variant.
-- [x] **A serial queue.** Downloading two models at once is slower than doing
-      them in turn, so the queue runs one at a time — and survives Ctrl-C.
-- [x] **Both a window and a terminal.** The macOS app and the `silo` command
-      share the same engine and the same library.
+## 📸 Screenshots
 
-## 🎀 Support
+<table>
+  <tr>
+    <td width="33%"><img src="assets/screenshots/discover.png" alt="Discover" /></td>
+    <td width="33%"><img src="assets/screenshots/variants.png" alt="Variants" /></td>
+    <td width="33%"><img src="assets/screenshots/library.png" alt="Library" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Discover</b><br/>Search every source at once</td>
+    <td align="center"><b>Variants</b><br/>Every quant of a model, with its size</td>
+    <td align="center"><b>Library</b><br/>What you have, where it's linked, space saved</td>
+  </tr>
+</table>
 
-**Sources**
+## ✨ Features
 
-- [x] HuggingFace
-- [x] hf-mirror
-- [x] ModelScope
-- [x] Custom endpoints
+- 💾 **One copy, every tool.** Each model is stored once and shared with every
+  tool that uses it. No duplicates, and the tools don't know the difference.
+- 🔍 **One search box.** Search HuggingFace and ModelScope at once,
+  or paste an exact `author/repo` to see every quant with its size.
+- ⚡ **The fastest mirror, measured.** Silo tests the mirrors before
+  downloading and moves to another one if a download fails.
+- 🔁 **Downloads that don't give up.** Pause, quit or reboot and pick up where
+  you left off. Every file is checked when it finishes.
+- 🧩 **Models stay whole.** Split weights and the extra files a vision model
+  needs show up as one item.
+- 🖥 **App and command line.** A native macOS app and a `silo` command that
+  share the same library.
 
-**Targets**
+## 🎀 Supported
 
-- [x] LM Studio
-- [x] Draw Things (staged for its importer)
-- [ ] Ollama
-- [ ] llama.cpp
-- [ ] ComfyUI
-- [ ] HuggingFace cache (transformers / vLLM)
+| Download from | Link into |
+| --- | --- |
+| ✅ HuggingFace | ✅ LM Studio |
+| ✅ hf-mirror | ✅ Draw Things |
+| ✅ ModelScope | 🚧 Ollama |
+| ✅ Custom endpoints | 🚧 llama.cpp |
+| | 🚧 ComfyUI |
+| | 🚧 HuggingFace cache (transformers / vLLM) |
 
-## 📦 Installing
+## 📦 Install
 
-### Homebrew
-
-The app and the command come from the same tap, and it strips the quarantine
-attribute for you — nothing to do after installing.
+With [Homebrew](https://brew.sh):
 
 ```bash
 brew tap linxunfeng/tap
-
 brew install --cask linxunfeng/tap/silo   # the app
-brew install linxunfeng/tap/silo          # the CLI
+brew install linxunfeng/tap/silo          # the command line
 ```
 
-`--cask` is what tells the two apart: the formula and the cask share a name, so
-without it Homebrew installs the command.
+<details>
+<summary>Manual download</summary>
+
+Get the `.dmg` (app) or the `.tar.gz` for your architecture (command line,
+`uname -m` tells you which) from
+[Releases](https://github.com/LinXunFeng/silo/releases/latest).
+
+The builds are not notarised, so macOS blocks the first launch. Clear the
+quarantine flag once:
 
 ```bash
-brew upgrade --cask silo   # the app
-brew upgrade silo          # the CLI
-```
-
-### App
-
-Download the `.dmg` from [Releases](https://github.com/LinXunFeng/silo/releases/latest)
-and drag Silo into Applications.
-
-The builds are neither signed nor notarised, so Gatekeeper blocks the first
-launch. Strip the quarantine attribute to get past it:
-
-```bash
+# App: drag Silo into Applications first
 xattr -dr com.apple.quarantine /Applications/Silo.app
-```
 
-### CLI
-
-Download the tarball for your architecture from the same release — `uname -m`
-says which one is yours:
-
-```bash
+# Command line
 tar -xzf silo-*-macos-$(uname -m).tar.gz
 xattr -d com.apple.quarantine silo 2>/dev/null || true
-mv silo ~/bin/silo
+mv silo ~/bin/silo   # or anywhere on your PATH
 ```
 
-Or build it from source:
+Homebrew does this for you.
+
+</details>
+
+## 🚀 Quick start
+
+**The app:** switch on the tools you use under Targets, then search for a
+model by keyword or `author/repo`, pick a variant and download. It is linked
+into those tools as soon as it lands.
+
+**The command line:**
 
 ```bash
-dart pub get
-dart compile exe packages/cli/bin/silo.dart -o ~/bin/silo
+silo search qwen3 coder                      # find a model
+silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF     # download it and link it into LM Studio
+silo ls                                      # see your library and the space saved
 ```
 
-## 🚀 Usage
-
-The app does all of this with a window. Its one search box takes either a
-keyword or an exact `author/repo`, and does the sensible thing with each —
-search results you can click through, or straight to the variant list.
+<details>
+<summary>More commands</summary>
 
 ```bash
-# Don't know the exact id? Search every source at once.
-# Only GGUF and MLX repositories are shown; --all for the rest.
-silo search qwen3 coder
-
-# What does this repo offer, and which mirrors carry it?
-silo inspect Qwen/Qwen2.5-0.5B-Instruct-GGUF
-
-# Which mirror is actually fastest right now?
-silo sources --probe Qwen/Qwen2.5-0.5B-Instruct-GGUF
-
-# Pull it in (defaults to Q4_K_M) and hard-link it into LM Studio.
-# Several models queue up and run one at a time.
-silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF Qwen/Qwen2.5-1.5B-Instruct-GGUF
-
-# Ctrl-C is safe: the queue and the partial bytes both survive
-silo queue --resume
-
-# What is in the library, and what did dedup save?
-silo ls
-
-# What do my tools already have?
-silo scan
-
-# Take a model out of a tool but keep it in the store
-silo unlink Qwen/Qwen2.5-0.5B-Instruct-GGUF --from lmstudio
-
-# Image models and LoRAs for Draw Things: the single-file weights land in the
-# folder its import dialogs list, ready to pick and convert. Open Draw Things
-# once first, so its folder exists.
-silo add latent-consistency/lcm-lora-sdxl --to drawthings
-
-# Forget a model (unlinks it too), then reclaim the space
-silo rm Qwen/Qwen2.5-0.5B-Instruct-GGUF
-silo gc
+silo inspect <author/repo>              # list the files and variants a repo offers
+silo sources --probe <author/repo>      # see which mirror is fastest right now
+silo add <repo> <repo> ...              # queue several, downloaded one at a time
+silo queue --resume                     # carry on after Ctrl-C
+silo add <repo> --to drawthings         # send an image model or LoRA to Draw Things
+silo scan                               # list the models your tools already have
+silo unlink <repo> --from lmstudio      # remove from a tool, keep it in the library
+silo rm <repo>                          # remove from the library
+silo gc                                 # free the space
 ```
 
-Useful global flags: `-j` connections (default 8), `--limit 5M` to throttle,
-`--source modelscope` to pin a mirror, `--store` to relocate the library.
+Global flags: `-j 8` connections, `--limit 5M` speed cap, `--source modelscope`
+to pin a mirror, `--store <dir>` to move the library. Run `silo help` for the
+full list.
 
-## 🧱 Architecture
+</details>
 
-```
-Source                    Engine                    Target
-──────────────────        ──────────────────        ──────────────────
-HuggingFace               range requests            LM Studio / Draw Things
-hf-mirror                 parallel chunks           llama.cpp
-ModelScope                resume via sidecar        Ollama
-(custom endpoints)        SHA-256 verification      ComfyUI / HF cache
-                          rate limiting
-```
+## 🛠 Development
 
-The engine in the middle knows nothing about models. It moves bytes from a URL
-into a file. Sources and targets are plugins on either side, so adding a mirror
-never means touching a target, and adding a tool never means touching the
-downloader.
-
-```
-packages/core    engine, sources, store, targets — zero runtime dependencies
-packages/cli     the `silo` command
-apps/silo        Flutter macOS app
-```
-
-`silo_core` deliberately has no package dependencies: `dart:io` and a hand-rolled
-streaming SHA-256, pinned against NIST vectors and the system `shasum`.
-
-## 🚢 Releasing
-
-Version numbers come out of the commit history, so commits follow
-[Conventional Commits](https://conventionalcommits.org). One product, one
-number: `silo_core`, `silo_cli` and the app are versioned in lockstep.
-
-```bash
-dart run melos run release   # bump the workspace, write the changelogs, tag v<version>
-git push --follow-tags       # the tag is what builds the DMG and cuts the release
-```
-
-```
-Local                                    GitHub Actions
-─────────────────────────────────        ─────────────────────────────────
-conventional commits
-        │
-        ▼
-melos run release
-  ├ melos version --all            one version across all three packages,
-  │                                dependents' constraints move with it
-  ├ CHANGELOG × 4                  one per package, plus the root summary
-  ├ chore(release) commit
-  └ git tag v0.1.1
-        │
-        ▼
-git push --follow-tags ──────────▶  on: push tags ['v*']
-                                           │
-                                       check      analyze + test
-                                           │
-                                       meta       version read off the tag,
-                                           │      checked against the pubspec
-                                ┌──────────┴──────────┐
-                              cli                    app
-                       arm64 + x86_64          flutter build macos
-                       → a tar.gz each         → hdiutil → DMG
-                                └──────────┬──────────┘
-                                        release
-                                SHA256SUMS + gh release create
-                                           │
-                                         tap        checksums →
-                                                    LinXunFeng/homebrew-tap,
-                                                    which opens its own bump PR
-```
-
-melos stops at the tag. Everything past it — the two CLI tarballs, the DMG, the
-checksums, the release itself, the Homebrew bump — is the workflow's job.
-
-A CLI tarball per architecture rather than one universal binary: `dart compile
-exe` appends the AOT snapshot past the end of the Mach-O, and `lipo` copies only
-the Mach-O, so a lipo'd `silo` starts up as the bare Dart VM.
-
-The `tap` job needs `TAP_APP_ID` and `TAP_APP_PRIVATE_KEY` — a GitHub App with
-contents and pull-request write on the tap. `GITHUB_TOKEN` cannot reach another
-repository.
-
-`melos run analyze` and `melos run test` are exactly what CI runs, so they are
-the two commands worth running before pushing.
+Architecture, building from source and releasing:
+[docs/development.md](docs/development.md).
 
 ## 📄 License
 
