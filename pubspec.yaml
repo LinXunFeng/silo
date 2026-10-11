@@ -31,21 +31,11 @@ melos:
   scripts:
     release:
       description: >-
-        Version the workspace from the conventional commits since the last
-        release, write the changelogs, and tag it v<version>. melos tags each
-        package too (silo_core-v0.1.1+2) — those are the anchors it reads to
-        find where the last release ended, and it is the release workflow that
-        wants a plain v<version>, which melos does not produce.
-      run: |
-        set -e
-        dart run melos version --all
-        git log -1 --pretty=%s | grep -q '^chore(release)' || {
-          echo 'No release commit was made, so there is nothing to tag.' >&2
-          exit 1
-        }
-        version=$(grep -m1 '^version:' packages/core/pubspec.yaml | cut -d' ' -f2 | cut -d+ -f1)
-        git tag -a "v$version" -m "Silo v$version"
-        echo "Tagged v$version — push it with: git push --follow-tags"
+        Cut a release: version the workspace from the conventional commits
+        since the last one, tag it v<version>, push, and wait for the Release
+        workflow to publish the GitHub release and its artifacts. Options
+        pass through to scripts/release.sh (--yes, --no-check).
+      run: ./scripts/release.sh
 
     analyze:
       description: Analyze every package in the workspace.
