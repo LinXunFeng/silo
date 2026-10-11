@@ -1,6 +1,6 @@
 name: silo_core
 description: Source-agnostic download engine, model source plugins, content-addressed blob store and tool targets for Silo.
-version: 0.1.0
+version: 0.1.1+2
 publish_to: none
 
 environment:

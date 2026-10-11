@@ -1,6 +1,6 @@
 name: silo_cli
 description: Command-line front end for Silo — add models to the store and link them into local tools.
-version: 0.1.0
+version: 0.1.1+2
 publish_to: none
 
 environment:
@@ -13,7 +13,7 @@ executables:
 
 dependencies:
   args: ^2.6.0
-  silo_core: ^0.1.0
+  silo_core: ^0.1.1+2
 
 dev_dependencies:
   lints: ^5.0.0
