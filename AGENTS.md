@@ -19,7 +19,10 @@ included; do not stop to ask again. `scripts/release.sh` then:
    conventional commits since the last release, and melos makes the
    `chore(release)` commit and the per-package tags (`silo_core-v…`).
 4. Tags that commit `v<version>`.
-5. Pushes `main` and the tags in a single atomic push.
+5. Pushes `main` and the package tags, then `v<version>` on its own. GitHub
+   raises no tag event when more than three tags are pushed at once, and
+   that event is what starts the release. If no run starts anyway, the
+   script dispatches one on the tag.
 6. Waits for `.github/workflows/release.yml`. That workflow builds the CLI
    tarballs (arm64 and x86_64) and the DMG, creates the GitHub release with
    them and `SHA256SUMS.txt`, and bumps the Homebrew tap.

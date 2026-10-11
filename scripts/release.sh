@@ -51,6 +51,18 @@ workspace_version() {
   grep -m1 '^version:' packages/core/pubspec.yaml | cut -d' ' -f2 | cut -d+ -f1
 }
 
+# Prints the newest Release workflow run on $tag, giving it 150 seconds to show.
+find_run() {
+  local id
+  for _ in $(seq 1 30); do
+    id=$(gh run list --workflow release.yml --branch "$tag" --limit 1 \
+      --json databaseId --jq '.[0].databaseId // empty')
+    [ -n "$id" ] && break
+    sleep 5
+  done
+  echo "$id"
+}
+
 # ── Preflight ────────────────────────────────────────────────────────────────
 step 'Preflight'
 command -v gh > /dev/null || die 'gh is not installed'
@@ -102,22 +114,27 @@ else
   confirm "Push these commits and $tag to origin? This starts the release." ||
     die "not pushed; run this script again to resume"
   # The package tags (silo_core-v…) go too: melos reads them to find where the
-  # next release starts, in every clone, not just this one.
+  # next release starts, in every clone, not just this one. They go first and
+  # $tag on its own, because GitHub raises no push event for any tag when more
+  # than three are pushed at once — and that event is what starts the release.
   # Tag names hold no spaces, so the unquoted expansion splits them cleanly
   # (and macOS's bash 3.2 has no mapfile).
   # shellcheck disable=SC2046
-  git push --atomic origin main $(git tag --points-at HEAD | sed 's#^#refs/tags/#')
+  git push --atomic origin main $(git tag --points-at HEAD | grep -vxF "$tag" |
+    sed 's#^#refs/tags/#')
+  git push origin "refs/tags/$tag"
 fi
 
 # ── Wait for the Release workflow ────────────────────────────────────────────
 step "Wait for the Release workflow on $tag"
-run_id=''
-for _ in $(seq 1 30); do
-  run_id=$(gh run list --workflow release.yml --branch "$tag" --limit 1 \
-    --json databaseId --jq '.[0].databaseId // empty')
-  [ -n "$run_id" ] && break
-  sleep 5
-done
+run_id=$(find_run)
+if [ -z "$run_id" ]; then
+  # The push raised no event (see above), so start the run on the tag directly;
+  # the workflow treats a run on a v* ref as a release either way.
+  echo "No run started for $tag; dispatching one."
+  gh workflow run release.yml --ref "$tag"
+  run_id=$(find_run)
+fi
 [ -n "$run_id" ] || die "no Release workflow run appeared for $tag"
 gh run watch "$run_id" --exit-status --interval 30 ||
   die "the Release workflow failed; once fixed: gh run rerun $run_id --failed"
