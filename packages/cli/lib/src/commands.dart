@@ -52,6 +52,13 @@ class AddCommand extends SiloCommand {
           abbr: 'v',
           help: 'Quantisation or variant name, e.g. Q4_K_M. '
               'Defaults to Q4_K_M when present. Applies to every model given.')
+      ..addMultiOption('file',
+          abbr: 'f',
+          splitCommas: false,
+          help: 'Download just this file of the repository, by path or name, '
+              'with nothing else from its folder. Repeat for more files; '
+              'takes one model. See them with '
+              '`silo inspect <author/repo> --files`.')
       ..addOption('revision', help: 'Branch or tag to pull from.')
       ..addMultiOption('to',
           help: 'Link into these targets once downloaded: lmstudio, drawthings.',
@@ -78,6 +85,16 @@ class AddCommand extends SiloCommand {
           'silo add Qwen/Qwen2.5-0.5B-Instruct-GGUF');
       return 64;
     }
+    final files = argResults!['file'] as List<String>;
+    final String? variant = argResults!['variant'] as String?;
+    if (files.isNotEmpty && variant != null) {
+      warn('--file and --variant pick different things; give one of them');
+      return 64;
+    }
+    if (files.isNotEmpty && rest.length > 1) {
+      warn('--file names files of one repository; give exactly one model');
+      return 64;
+    }
 
     final library = context.buildLibrary();
     final queue = DownloadQueue(
@@ -87,18 +104,35 @@ class AddCommand extends SiloCommand {
     try {
       // Everything goes through the queue, even a single model: one code path,
       // and an interrupted run leaves a queue the next `silo queue` can pick up.
-      for (final String reference in rest) {
-        queue.enqueue(
-          ref: ModelRef.parse(reference),
-          variantName: argResults!['variant'] as String?,
-          revision: argResults!['revision'] as String?,
-          targetIds: argResults!['to'] as List<String>,
-        );
+      final String? revision = argResults!['revision'] as String?;
+      final targetIds = argResults!['to'] as List<String>;
+      if (files.isNotEmpty) {
+        // One job per file: each is a variant of its own in the library, so
+        // each can be linked and removed without the others.
+        final ref = ModelRef.parse(rest.single);
+        for (final String file in files) {
+          queue.enqueue(
+            ref: ref,
+            filePath: file,
+            revision: revision,
+            targetIds: targetIds,
+          );
+        }
+      } else {
+        for (final String reference in rest) {
+          queue.enqueue(
+            ref: ModelRef.parse(reference),
+            variantName: variant,
+            revision: revision,
+            targetIds: targetIds,
+          );
+        }
       }
       await queue.save();
 
-      if (rest.length > 1) {
-        log('Queued ${rest.length} models. Downloading one at a time — '
+      final int jobCount = queue.jobs.length;
+      if (jobCount > 1) {
+        log('Queued $jobCount downloads. Downloading one at a time — '
             'parallel downloads only split the same bandwidth.');
       }
 
@@ -330,15 +364,17 @@ class ListCommand extends SiloCommand {
       };
       final int catalogued =
           catalog.entries.fold<int>(0, (a, e) => a + e.totalSize);
-      final int linked = catalog.links
+      // A file two entries share is still one file in the tool.
+      final List<LinkRecord> links = catalog.distinctLinks;
+      final int linked = links
           .where((l) => l.hardLinked)
           .fold<int>(0, (a, l) => a + (sizeByDigest[l.sha256] ?? 0));
 
       log('${catalog.entries.length} model(s), '
           '${formatBytes(physical)} on disk');
-      if (catalog.links.isNotEmpty) {
-        final int hardLinked = catalog.links.where((l) => l.hardLinked).length;
-        log('${catalog.links.length} link(s) into tools, '
+      if (links.isNotEmpty) {
+        final int hardLinked = links.where((l) => l.hardLinked).length;
+        log('${links.length} link(s) into tools, '
             '$hardLinked by hard link');
       }
       final int saved = catalogued + linked - physical;
@@ -435,7 +471,11 @@ class SearchCommand extends SiloCommand {
 /// `silo inspect` — what variants exist upstream.
 class InspectCommand extends SiloCommand {
   InspectCommand() {
-    argParser.addOption('revision', help: 'Branch or tag to inspect.');
+    argParser
+      ..addOption('revision', help: 'Branch or tag to inspect.')
+      ..addFlag('files',
+          negatable: false,
+          help: 'List every file, for picking one with `add --file`.');
   }
 
   @override
@@ -469,6 +509,22 @@ class InspectCommand extends SiloCommand {
       log('  available from: '
           '${result.sources.map((s) => s.source.id).join(', ')}');
       log('');
+      if (argResults!['files'] as bool) {
+        final int width = result.files
+            .fold<int>(0, (w, f) => f.path.length > w ? f.path.length : w);
+        for (final file in result.files) {
+          log('  ${file.path.padRight(width)} '
+              '${formatBytes(file.size).padLeft(10)}');
+        }
+        log('');
+        log('Download one with:');
+        // The biggest file is the one most likely to be the weights.
+        final String example = result.files.isEmpty
+            ? '<path>'
+            : result.files.reduce((a, b) => b.size > a.size ? b : a).path;
+        log('  silo add ${ref.id} --file $example');
+        return 0;
+      }
       for (final variant in result.variants) {
         final parts = variant.isSharded ? ' ${variant.parts.length} shards' : '';
         // Companions mean different things per format: a projector for GGUF,
@@ -485,6 +541,8 @@ class InspectCommand extends SiloCommand {
       log('');
       log('Download one with:');
       log('  silo add ${ref.id} -v ${result.variants.isEmpty ? 'Q4_K_M' : result.variants.first.name}');
+      log('Or just one of its files:');
+      log('  silo inspect ${ref.id} --files');
       return 0;
     } on Object catch (error) {
       warn('inspect failed: $error');

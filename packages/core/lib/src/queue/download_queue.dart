@@ -95,10 +95,12 @@ class DownloadQueue {
   QueueJob enqueue({
     required ModelRef ref,
     String? variantName,
+    String? filePath,
     String? revision,
     List<String> targetIds = const <String>[],
   }) {
-    final QueueJob? existing = _find(ref: ref, variantName: variantName);
+    final QueueJob? existing =
+        _find(ref: ref, variantName: variantName, filePath: filePath);
     if (existing != null) {
       if (!existing.isFinished) return existing;
       _jobs.remove(existing);
@@ -108,6 +110,7 @@ class DownloadQueue {
       id: 'job-${++_counter}-${ref.author}-${ref.repo}',
       ref: ref,
       variantName: variantName,
+      filePath: filePath,
       revision: revision,
       targetIds: List<String>.of(targetIds),
     );
@@ -261,6 +264,7 @@ class DownloadQueue {
       final AddResult result = await library.add(
         job.ref,
         variantName: job.variantName,
+        filePath: job.filePath,
         revision: job.revision,
         probeSourceSpeed: probeSourceSpeed,
         handle: handle,
@@ -322,10 +326,16 @@ class DownloadQueue {
     }
   }
 
-  QueueJob? _find({required ModelRef ref, required String? variantName}) {
+  QueueJob? _find({
+    required ModelRef ref,
+    required String? variantName,
+    required String? filePath,
+  }) {
     for (final job in _jobs) {
       if (job.ref != ref) continue;
-      if (job.variantName == variantName) return job;
+      if (job.variantName == variantName && job.filePath == filePath) {
+        return job;
+      }
     }
     return null;
   }
@@ -381,7 +391,14 @@ class DownloadQueue {
         if (raw is! Map<String, Object?>) continue;
         final QueueJob? job = QueueJob.fromJson(raw);
         if (job == null) continue;
-        if (_find(ref: job.ref, variantName: job.variantName) != null) continue;
+        if (_find(
+              ref: job.ref,
+              variantName: job.variantName,
+              filePath: job.filePath,
+            ) !=
+            null) {
+          continue;
+        }
         _counter++;
         _jobs.add(job);
       }

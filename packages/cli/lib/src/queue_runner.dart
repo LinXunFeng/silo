@@ -51,7 +51,7 @@ class QueueRunner {
       if (_announced.add(job.id)) {
         _status.clear();
         final int position = queue.jobs.indexOf(job) + 1;
-        _out.writeln('[$position/${queue.jobs.length}] ${job.ref.id}');
+        _out.writeln('[$position/${queue.jobs.length}] ${job.title}');
       }
 
       final progress = job.progress;

@@ -50,6 +50,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String variantFiles(int count) {
+    return 'Files ($count)';
+  }
+
+  @override
+  String get variantFileShard => 'Shard: download it with its variant';
+
+  @override
   String get pauseAction => 'Pause';
 
   @override

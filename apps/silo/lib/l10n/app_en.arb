@@ -39,6 +39,15 @@
       }
     }
   },
+  "variantFiles": "Files ({count})",
+  "@variantFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "variantFileShard": "Shard: download it with its variant",
   "pauseAction": "Pause",
   "resumeAction": "Resume",
   "cancelAction": "Cancel",

@@ -207,10 +207,15 @@ class SiloLibrary {
     return null;
   }
 
-  /// Lists the GGUF variants available for [ref] across every configured
-  /// source, together with which sources carry it.
-  Future<({List<ModelVariant> variants, List<ResolvedSource> sources})>
-      inspect(
+  /// Lists the variants available for [ref] across every configured source,
+  /// together with every file that can be picked on its own and which sources
+  /// carry it.
+  Future<
+      ({
+        List<ModelVariant> variants,
+        List<RemoteFile> files,
+        List<ResolvedSource> sources,
+      })> inspect(
     ModelRef ref, {
     String? revision,
     void Function(String message)? onLog,
@@ -229,8 +234,10 @@ class SiloLibrary {
     // that publishes SHA-256 for every file lets everything be verified.
     resolved.sort((a, b) => _digestCoverage(b.listing)
         .compareTo(_digestCoverage(a.listing)));
+    final List<RemoteFile> files = resolved.first.listing.files;
     return (
-      variants: groupVariants(resolved.first.listing.files, repoName: ref.repo),
+      variants: groupVariants(files, repoName: ref.repo),
+      files: downloadableFiles(files),
       sources: resolved,
     );
   }
@@ -300,17 +307,25 @@ class SiloLibrary {
 
   /// Downloads a variant into the store.
   ///
+  /// [filePath] picks one file of the repository on its own, stored as a
+  /// variant of its own — see [fileVariant]. It cannot be given together with
+  /// [variantName].
+  ///
   /// Files already held under the same digest are skipped outright — that is
   /// deduplication paying off before a single byte moves.
   Future<AddResult> add(
     ModelRef ref, {
     String? variantName,
+    String? filePath,
     String? revision,
     bool probeSourceSpeed = true,
     AddHandle? handle,
     void Function(AddProgress)? onProgress,
     void Function(String message)? onLog,
   }) async {
+    if (variantName != null && filePath != null) {
+      throw ArgumentError('pick a variant or a file, not both');
+    }
     await store.ensureCreated();
 
     final resolved = await resolveSources(
@@ -325,15 +340,28 @@ class SiloLibrary {
     }
 
     final ResolvedSource primary = _pickListingSource(resolved);
-    final List<ModelVariant> variants =
-        groupVariants(primary.listing.files, repoName: ref.repo);
-    if (variants.isEmpty) {
-      throw DownloadException(
-        '${ref.id} has no GGUF or safetensors weights',
-      );
+    final ModelVariant variant;
+    if (filePath != null) {
+      final RemoteFile file = findFile(primary.listing.files, filePath);
+      // A shard on its own loads as a corrupt model, the same as a set with
+      // a gap in it, so it is refused rather than stored.
+      if (isPartialShard(file)) {
+        throw ArgumentError(
+          '${file.path} is one shard of a set; download the variant it '
+          'belongs to instead',
+        );
+      }
+      variant = fileVariant(file);
+    } else {
+      final List<ModelVariant> variants =
+          groupVariants(primary.listing.files, repoName: ref.repo);
+      if (variants.isEmpty) {
+        throw DownloadException(
+          '${ref.id} has no GGUF or safetensors weights',
+        );
+      }
+      variant = _selectVariant(variants, variantName);
     }
-
-    final ModelVariant variant = _selectVariant(variants, variantName);
     if (!isShardSetComplete(variant.parts)) {
       throw DownloadException(
         'variant ${variant.name} has an incomplete shard set '
@@ -581,10 +609,11 @@ class SiloLibrary {
       throw StateError('${ref.id} is not in the library; run `silo add` first');
     }
 
-    final CatalogEntry entry = variantName == null
+    final String? wanted = _storedVariantName(candidates, variantName);
+    final CatalogEntry entry = wanted == null
         ? candidates.first
         : candidates.firstWhere(
-            (e) => e.variant == variantName,
+            (e) => e.variant == wanted,
             orElse: () => throw StateError(
               'variant $variantName is not in the library for ${ref.id}',
             ),
@@ -749,8 +778,14 @@ class SiloLibrary {
     if (stale.isEmpty) return;
 
     final removed = <String>[];
+    final released = <String>[];
     for (final link in stale) {
       final file = File(link.path);
+      if (catalog.isLinkShared(link)) {
+        // Another entry still wants the file: only this record goes.
+        released.add(link.path);
+        continue;
+      }
       if (!await file.exists()) {
         removed.add(link.path);
         continue;
@@ -763,7 +798,7 @@ class SiloLibrary {
     catalog.links.removeWhere(
       (link) => link.entryKey == entryKey &&
           link.targetId == targetId &&
-          removed.contains(link.path),
+          (removed.contains(link.path) || released.contains(link.path)),
     );
     await _pruneEmptyDirectories(paths: removed);
   }
@@ -794,10 +829,8 @@ class SiloLibrary {
     final catalog = await readCatalog();
     final Set<String>? wanted = targetIds?.toSet();
 
-    final List<CatalogEntry> entries = catalog
-        .forModel(ref)
-        .where((e) => variantName == null || e.variant == variantName)
-        .toList();
+    final List<CatalogEntry> entries =
+        _entriesFor(catalog, ref, variantName);
 
     final byTarget = <String, ({List<String> removed, List<String> skipped})>{};
 
@@ -813,6 +846,12 @@ class SiloLibrary {
         final file = File(link.path);
         if (!await file.exists()) {
           // Already gone; nothing to do, and no reason to complain.
+          continue;
+        }
+        if (catalog.isLinkShared(link)) {
+          // A variant this file was picked out of, or a file picked out of
+          // this variant, still has it linked there. The record goes; the
+          // file stays.
           continue;
         }
         if (!await _isOursToDelete(link: link, file: file)) {
@@ -917,10 +956,8 @@ class SiloLibrary {
     }
 
     final catalog = await readCatalog();
-    final List<CatalogEntry> matches = catalog
-        .forModel(ref)
-        .where((e) => variantName == null || e.variant == variantName)
-        .toList();
+    final List<CatalogEntry> matches =
+        _entriesFor(catalog, ref, variantName);
     if (matches.isEmpty) return false;
     for (final entry in matches) {
       catalog.remove(entry.key);
@@ -959,6 +996,42 @@ class SiloLibrary {
               '${variants.map((v) => v.name).join(', ')}'
           : '"$name" is ambiguous: ${matches.map((v) => v.name).join(', ')}',
     );
+  }
+
+  /// Every stored variant of [ref], or just the one [variantName] names.
+  List<CatalogEntry> _entriesFor(
+    Catalog catalog,
+    ModelRef ref,
+    String? variantName,
+  ) {
+    final List<CatalogEntry> stored = catalog.forModel(ref);
+    final String? variant = _storedVariantName(stored, variantName);
+    return stored
+        .where((e) => variant == null || e.variant == variant)
+        .toList();
+  }
+
+  /// The stored variant [name] refers to among [entries].
+  ///
+  /// A file picked on its own is stored under its repository path, but it was
+  /// most likely asked for by its bare name, so that is accepted too when only
+  /// one stored file has it — the same leniency `add` showed when it was
+  /// downloaded. An unknown name comes back as it was, for the caller to
+  /// report.
+  String? _storedVariantName(List<CatalogEntry> entries, String? name) {
+    if (name == null) return null;
+    if (entries.any((e) => e.variant == name)) return name;
+    final String needle = name.toLowerCase();
+    final matches = <String>{
+      for (final e in entries)
+        if (e.variant.toLowerCase() == needle ||
+            e.variant.toLowerCase().endsWith('/$needle'))
+          e.variant,
+    };
+    if (matches.length > 1) {
+      throw ArgumentError('"$name" is ambiguous: ${matches.join(', ')}');
+    }
+    return matches.isEmpty ? name : matches.single;
   }
 
   ResolvedSource _pickListingSource(List<ResolvedSource> resolved) {

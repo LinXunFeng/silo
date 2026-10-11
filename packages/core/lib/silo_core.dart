@@ -25,7 +25,15 @@ export 'src/model/model_ref.dart' show ModelRef;
 export 'src/model/model_search_result.dart'
     show MergedSearchResult, ModelSearchResult;
 export 'src/model/model_variant.dart'
-    show ModelFormat, ModelVariant, groupVariants, isShardSetComplete;
+    show
+        ModelFormat,
+        ModelVariant,
+        downloadableFiles,
+        fileVariant,
+        findFile,
+        groupVariants,
+        isPartialShard,
+        isShardSetComplete;
 export 'src/model/remote_file.dart' show ModelListing, RemoteFile;
 export 'src/queue/download_queue.dart' show DownloadQueue;
 export 'src/queue/queue_job.dart' show QueueJob, QueueJobStatus;

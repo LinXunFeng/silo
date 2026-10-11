@@ -124,7 +124,9 @@ silo ls                                      # see your library and the space sa
 <summary>More commands</summary>
 
 ```bash
-silo inspect <author/repo>              # list the files and variants a repo offers
+silo inspect <author/repo>              # list the variants a repo offers
+silo inspect <author/repo> --files      # list every file in it, with its size
+silo add <repo> --file <path>           # download just one file, e.g. one checkpoint
 silo sources --probe <author/repo>      # see which mirror is fastest right now
 silo add <repo> <repo> ...              # queue several, downloaded one at a time
 silo queue --resume                     # carry on after Ctrl-C

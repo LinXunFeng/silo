@@ -46,6 +46,16 @@ class LibraryState {
 
   String? selectedVariantName;
 
+  /// One file picked on its own, by its repository path.
+  ///
+  /// Never set together with [selectedVariantName]: a file and a grouped
+  /// variant are alternatives in the same list, and picking one clears the
+  /// other.
+  String? selectedFilePath;
+
+  /// Variants whose files are listed underneath them, to pick one alone.
+  Set<String> expandedVariantNames = <String>{};
+
   ModelVariant? get selectedVariant {
     final name = selectedVariantName;
     if (name == null) return null;

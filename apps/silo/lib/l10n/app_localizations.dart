@@ -164,6 +164,18 @@ abstract class AppLocalizations {
   /// **'+{count} support files'**
   String variantSupportFiles(int count);
 
+  /// No description provided for @variantFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files ({count})'**
+  String variantFiles(int count);
+
+  /// No description provided for @variantFileShard.
+  ///
+  /// In en, this message translates to:
+  /// **'Shard: download it with its variant'**
+  String get variantFileShard;
+
   /// No description provided for @pauseAction.
   ///
   /// In en, this message translates to:

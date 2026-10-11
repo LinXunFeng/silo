@@ -151,6 +151,143 @@ void main() {
     expect(catalog.entries, hasLength(1));
   });
 
+  test('add with a file pulls that file alone, as a variant of its own',
+      () async {
+    hub.files['ckpt/extra.safetensors'] = bytes(64 * 1024, 9);
+
+    final result = await library.add(
+      ref,
+      filePath: 'extra.safetensors',
+      probeSourceSpeed: false,
+    );
+
+    expect(result.isComplete, isTrue);
+    expect(result.entry.variant, 'ckpt/extra.safetensors');
+    expect(result.entry.directory, 'ckpt');
+    expect(
+      result.entry.files.map((f) => f.name),
+      <String>['extra.safetensors'],
+    );
+    expect(await store.listBlobs(), hasLength(1));
+
+    await library.link(
+      ref,
+      targetIds: <String>['lmstudio'],
+      variantName: result.entry.variant,
+    );
+    expect(
+      File('${target.root.path}/acme/Demo-MLX-8bit-ckpt/extra.safetensors')
+          .existsSync(),
+      isTrue,
+    );
+  });
+
+  test('a file picked out of a stored variant shares its link, and unlinking '
+      'either leaves the other whole', () async {
+    await library.add(ref, probeSourceSpeed: false);
+    await library.add(ref, filePath: 'config.json', probeSourceSpeed: false);
+    for (final String variant in <String>[ref.repo, 'config.json']) {
+      await library.link(
+        ref,
+        targetIds: <String>['lmstudio'],
+        variantName: variant,
+      );
+    }
+
+    final config = File('${target.root.path}/acme/Demo-MLX-8bit/config.json');
+    var catalog = await library.readCatalog();
+    expect(
+      catalog.links.where((l) => l.path == config.path),
+      hasLength(2),
+      reason: 'both entries remember the file',
+    );
+    expect(catalog.distinctLinks, hasLength(4));
+
+    await library.unlink(ref, variantName: 'config.json');
+    expect(config.existsSync(), isTrue,
+        reason: 'the variant still has it linked');
+
+    await library.link(
+      ref,
+      targetIds: <String>['lmstudio'],
+      variantName: 'config.json',
+    );
+    await library.unlink(ref, variantName: ref.repo);
+    expect(config.existsSync(), isTrue,
+        reason: 'the file picked on its own still has it linked');
+    catalog = await library.readCatalog();
+    expect(catalog.links.map((l) => l.path), <String>[config.path]);
+
+    await library.unlink(ref, variantName: 'config.json');
+    expect(config.existsSync(), isFalse);
+  });
+
+  test('a link that replaced other bytes at a path takes the path over', () {
+    LinkRecord record(String entry, String sha256) => LinkRecord(
+          entryKey: entry,
+          targetId: 'lmstudio',
+          sha256: sha256,
+          path: '/models/acme/repo/model.safetensors',
+          hardLinked: true,
+        );
+    final catalog = Catalog()
+      ..recordLinks(<LinkRecord>[
+        record('acme/repo#repo', 'a' * 64),
+        record('acme/repo#model.safetensors', 'a' * 64),
+      ]);
+    expect(catalog.links, hasLength(2), reason: 'same bytes: both keep it');
+    expect(catalog.isLinkShared(catalog.links.first), isTrue);
+
+    catalog.recordLinks(<LinkRecord>[record('acme/repo#other', 'b' * 64)]);
+    expect(catalog.links.map((l) => l.entryKey), <String>['acme/repo#other'],
+        reason: 'the old file is gone, and so is every claim on it');
+    expect(catalog.isLinkShared(catalog.links.single), isFalse);
+  });
+
+  test('a file picked on its own is found again by its bare name', () async {
+    hub.files['ckpt/extra.safetensors'] = bytes(64 * 1024, 9);
+    await library.add(
+      ref,
+      filePath: 'ckpt/extra.safetensors',
+      probeSourceSpeed: false,
+    );
+
+    final linked = await library.link(
+      ref,
+      targetIds: <String>['lmstudio'],
+      variantName: 'EXTRA.safetensors',
+    );
+    expect(linked.single.links, hasLength(1));
+
+    expect(await library.forget(ref, variantName: 'extra.safetensors'),
+        isTrue);
+    expect((await library.readCatalog()).entries, isEmpty);
+  });
+
+  test('add refuses a shard picked on its own', () async {
+    await expectLater(
+      library.add(
+        ref,
+        filePath: 'model-00001-of-00002.safetensors',
+        probeSourceSpeed: false,
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect((await library.readCatalog()).entries, isEmpty);
+  });
+
+  test('add refuses a variant and a file together', () async {
+    await expectLater(
+      library.add(
+        ref,
+        variantName: 'Demo-MLX-8bit',
+        filePath: 'config.json',
+        probeSourceSpeed: false,
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('link hard-links the whole variant into LM Studio layout', () async {
     await library.add(ref, probeSourceSpeed: false);
     final results = await library.link(ref, targetIds: <String>['lmstudio']);

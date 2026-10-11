@@ -9,18 +9,29 @@ import 'package:silo_core/silo_core.dart';
 /// through [LibraryLogic.queue]'s change stream, so the UI stays responsive and
 /// a user can keep browsing and queueing while something transfers.
 extension LibraryLogicDownload on LibraryLogic {
-  /// Queues the selected variant, to be linked into the selected targets when
-  /// it finishes.
+  /// Queues the selected variant or file, to be linked into the selected
+  /// targets when it finishes.
   void enqueueSelected() {
     final ref = state.inspectedRef;
-    final variant = state.selectedVariant;
-    if (ref == null || variant == null) return;
+    if (ref == null) return;
 
-    queue.enqueue(
-      ref: ref,
-      variantName: variant.name,
-      targetIds: state.selectedTargetIds.toList(),
-    );
+    final filePath = state.selectedFilePath;
+    final variant = state.selectedVariant;
+    if (filePath != null) {
+      queue.enqueue(
+        ref: ref,
+        filePath: filePath,
+        targetIds: state.selectedTargetIds.toList(),
+      );
+    } else if (variant != null) {
+      queue.enqueue(
+        ref: ref,
+        variantName: variant.name,
+        targetIds: state.selectedTargetIds.toList(),
+      );
+    } else {
+      return;
+    }
 
     // The queue lives on another screen now. Sending the user there is the
     // only acknowledgement the button has that something happened.

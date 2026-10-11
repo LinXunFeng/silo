@@ -617,4 +617,90 @@ void main() {
     });
   });
 
+  group('single files', () {
+    List<RemoteFile> comfyRepo() => <RemoteFile>[
+          f('.gitattributes', size: 1),
+          f('README.md', size: 1),
+          f('diffusion_models/image_bf16.safetensors', size: 40),
+          f('diffusion_models/image_int8.safetensors', size: 20),
+          f('vae/image_vae.safetensors', size: 5),
+          f('vae/config.json', size: 1),
+          f('diffusion_models/config.json', size: 1),
+          f('text_encoders/te-00001-of-00002.safetensors', size: 10),
+          f('text_encoders/te-00002-of-00002.safetensors', size: 10),
+        ];
+
+    test('an exact path wins over a same-named file in a folder', () {
+      final repo = <RemoteFile>[...comfyRepo(), f('config.json', size: 3)];
+      expect(findFile(repo, 'config.json').size, 3);
+    });
+
+    test('finds a file by its repository path', () {
+      final file =
+          findFile(comfyRepo(), 'diffusion_models/image_int8.safetensors');
+      expect(file.size, 20);
+    });
+
+    test('finds a file by its bare name when only one folder has it', () {
+      final file = findFile(comfyRepo(), 'image_int8.safetensors');
+      expect(file.path, 'diffusion_models/image_int8.safetensors');
+    });
+
+    test('tolerates a leading slash and different case', () {
+      final file = findFile(comfyRepo(), '/VAE/Image_VAE.safetensors');
+      expect(file.path, 'vae/image_vae.safetensors');
+    });
+
+    test('refuses a bare name two folders share', () {
+      expect(
+        () => findFile(comfyRepo(), 'config.json'),
+        throwsA(isA<ArgumentError>().having(
+          (e) => '${e.message}',
+          'message',
+          contains('ambiguous'),
+        )),
+      );
+    });
+
+    test('refuses a file that is not there, or is repository plumbing', () {
+      expect(() => findFile(comfyRepo(), 'nope.safetensors'),
+          throwsArgumentError);
+      expect(() => findFile(comfyRepo(), '.gitattributes'),
+          throwsArgumentError);
+    });
+
+    test('lists every file but the plumbing, in path order', () {
+      final paths = downloadableFiles(comfyRepo()).map((f) => f.path);
+      expect(paths, isNot(contains('.gitattributes')));
+      expect(paths.first, 'README.md');
+      expect(paths, hasLength(8));
+    });
+
+    test('a file variant is the file alone, named by its path', () {
+      final variant =
+          fileVariant(f('diffusion_models/image_int8.safetensors', size: 20));
+      expect(variant.name, 'diffusion_models/image_int8.safetensors');
+      expect(variant.directory, 'diffusion_models');
+      expect(variant.format, ModelFormat.safetensors);
+      expect(variant.parts, hasLength(1));
+      expect(variant.companions, isEmpty);
+      expect(variant.totalSize, 20);
+    });
+
+    test('a file variant never shares a name with a grouped variant', () {
+      final grouped = groupVariants(comfyRepo(), repoName: 'Repo')
+          .map((v) => v.name)
+          .toSet();
+      for (final file in downloadableFiles(comfyRepo())) {
+        expect(grouped, isNot(contains(fileVariant(file).name)));
+      }
+    });
+
+    test('a GGUF file keeps its quantisation tag', () {
+      final variant = fileVariant(f('model-Q4_K_M.gguf'));
+      expect(variant.format, ModelFormat.gguf);
+      expect(variant.quantization, 'Q4_K_M');
+      expect(variant.directory, isEmpty);
+    });
+  });
 }

@@ -84,7 +84,8 @@ class LibraryLogic extends GetxController {
     };
     final catalogued =
         catalog.entries.fold<int>(0, (sum, e) => sum + e.totalSize);
-    final linked = catalog.links
+    // A file two entries share is still one file in the tool.
+    final linked = catalog.distinctLinks
         .where((link) => link.hardLinked)
         .fold<int>(0, (sum, link) => sum + (sizeByDigest[link.sha256] ?? 0));
 

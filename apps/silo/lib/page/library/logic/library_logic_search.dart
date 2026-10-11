@@ -30,6 +30,8 @@ extension LibraryLogicSearch on LibraryLogic {
     state.variants = <ModelVariant>[];
     state.availableSourceIds = <String>[];
     state.selectedVariantName = null;
+    state.selectedFilePath = null;
+    state.expandedVariantNames = <String>{};
     update(<Object>[
       LibraryUpdateType.search,
       LibraryUpdateType.results,
@@ -61,6 +63,8 @@ extension LibraryLogicSearch on LibraryLogic {
     state.variants = <ModelVariant>[];
     state.availableSourceIds = <String>[];
     state.selectedVariantName = null;
+    state.selectedFilePath = null;
+    state.expandedVariantNames = <String>{};
     state.inspectedRef = null;
     update(<Object>[
       LibraryUpdateType.search,
@@ -101,6 +105,23 @@ extension LibraryLogicSearch on LibraryLogic {
 
   void selectVariant({required String name}) {
     state.selectedVariantName = name;
+    state.selectedFilePath = null;
+    update(<Object>[LibraryUpdateType.variants]);
+  }
+
+  /// Picks one file of the repository on its own, in place of a grouped
+  /// variant.
+  void selectFile({required String path}) {
+    state.selectedFilePath = path;
+    state.selectedVariantName = null;
+    update(<Object>[LibraryUpdateType.variants]);
+  }
+
+  /// Shows or hides the files of a variant.
+  void toggleVariantFiles({required String name}) {
+    if (!state.expandedVariantNames.remove(name)) {
+      state.expandedVariantNames.add(name);
+    }
     update(<Object>[LibraryUpdateType.variants]);
   }
 

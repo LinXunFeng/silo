@@ -115,7 +115,9 @@ silo ls                                      # 查看模型库和省下的空间
 <summary>更多命令</summary>
 
 ```bash
-silo inspect <author/repo>              # 查看仓库里的文件和可选版本
+silo inspect <author/repo>              # 查看仓库里的可选版本
+silo inspect <author/repo> --files      # 列出仓库里的每个文件和大小
+silo add <repo> --file <path>           # 只下载其中一个文件，比如某一个 checkpoint
 silo sources --probe <author/repo>      # 测一下此刻哪个镜像最快
 silo add <repo> <repo> ...              # 一次添加多个，排队逐个下载
 silo queue --resume                     # Ctrl-C 之后继续下载

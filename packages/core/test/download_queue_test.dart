@@ -380,6 +380,53 @@ void main() {
     expect(queue.jobs.map((j) => j.id), <String>[pending.id]);
   });
 
+  test('a file job is its own job, and comes back from disk as one', () async {
+    final queueFile = File('${tmp.path}/queue.json');
+    final saved = DownloadQueue(
+      library: library,
+      persistTo: queueFile,
+      autoStart: false,
+    );
+    final whole = saved.enqueue(ref: alpha);
+    final file = saved.enqueue(ref: alpha, filePath: 'alpha-q4_k_m.gguf');
+    expect(identical(whole, file), isFalse);
+    expect(saved.enqueue(ref: alpha, filePath: 'alpha-q4_k_m.gguf'),
+        same(file));
+    expect(file.title, 'acme/alpha-GGUF · alpha-q4_k_m.gguf');
+    await saved.save();
+    await saved.close();
+
+    final restored = DownloadQueue(
+      library: library,
+      persistTo: queueFile,
+      autoStart: false,
+    );
+    await restored.load();
+    addTearDown(restored.close);
+
+    expect(restored.jobs, hasLength(2));
+    expect(restored.jobs.last.filePath, 'alpha-q4_k_m.gguf');
+    expect(restored.jobs.last.variantName, isNull);
+  });
+
+  test('a file job downloads and links just that file', () async {
+    queue.enqueue(
+      ref: alpha,
+      filePath: 'alpha-q4_k_m.gguf',
+      targetIds: <String>['lmstudio'],
+    );
+    await until(() => queue.jobs.single.isFinished);
+
+    final job = queue.jobs.single;
+    expect(job.status, QueueJobStatus.completed, reason: '${job.error}');
+    expect(job.result!.entry.variant, 'alpha-q4_k_m.gguf');
+    expect(
+      File('${tmp.path}/.lmstudio/models/acme/alpha-GGUF/alpha-q4_k_m.gguf')
+          .existsSync(),
+      isTrue,
+    );
+  });
+
   test('the queue persists and comes back resumable', () async {
     final queueFile = File('${tmp.path}/queue.json');
     final saved = DownloadQueue(

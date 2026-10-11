@@ -113,6 +113,62 @@ List<ModelVariant> groupVariants(List<RemoteFile> files, {String? repoName}) {
   return const <ModelVariant>[];
 }
 
+/// The files of a repository a user could ask for one at a time: everything
+/// but the plumbing [groupVariants] drops too, in path order.
+List<RemoteFile> downloadableFiles(List<RemoteFile> files) =>
+    files.where((f) => !_skippedFiles.contains(f.name)).toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+
+/// Finds the file [query] names among [files].
+///
+/// The repository path is tried first, then the bare file name, so
+/// `qwen_image_2.1_int8.safetensors` finds `diffusion_models/qwen_image_2.1_
+/// int8.safetensors` without the user typing the folder. A bare name that two
+/// folders share is refused rather than guessed.
+RemoteFile findFile(List<RemoteFile> files, String query) {
+  var needle = query.trim();
+  while (needle.startsWith('/')) {
+    needle = needle.substring(1);
+  }
+  final candidates = downloadableFiles(files);
+  for (final file in candidates) {
+    if (file.path == needle) return file;
+  }
+  final String lower = needle.toLowerCase();
+  final matches = candidates
+      .where((f) =>
+          f.path.toLowerCase() == lower || f.name.toLowerCase() == lower)
+      .toList();
+  if (matches.length == 1) return matches.single;
+  throw ArgumentError(
+    matches.isEmpty
+        ? 'no file named "$query" in the repository'
+        : '"$query" is ambiguous: ${matches.map((f) => f.path).join(', ')}',
+  );
+}
+
+/// One file as a variant of its own, with nothing else attached.
+///
+/// Named by its repository path, which no grouped variant can share — those
+/// are named without an extension — so picking a file never overwrites the
+/// variant it was picked out of. The file's folder becomes the variant's
+/// [ModelVariant.directory], so targets that flatten paths keep it apart from
+/// a same-named file elsewhere in the repository.
+ModelVariant fileVariant(RemoteFile file) {
+  return ModelVariant(
+    name: file.path,
+    format: file.isGguf
+        ? ModelFormat.gguf
+        : file.isSafetensors
+            ? ModelFormat.safetensors
+            : ModelFormat.unknown,
+    quantization: _quantizationOf(_variantKey(file.name)),
+    parts: <RemoteFile>[file],
+    companions: const <RemoteFile>[],
+    directory: _directoryOf(file.path),
+  );
+}
+
 List<ModelVariant> _groupGguf(List<RemoteFile> files) {
   final companions = <RemoteFile>[];
   final grouped = <String, List<RemoteFile>>{};
@@ -272,6 +328,11 @@ String? _quantizationOf(String variantKey) {
   final match = _quantPattern.firstMatch(variantKey);
   return match?.group(1)?.toUpperCase();
 }
+
+/// True when [file] is one piece of a larger shard set, and so a broken
+/// model on its own.
+bool isPartialShard(RemoteFile file) =>
+    !isShardSetComplete(<RemoteFile>[file]);
 
 /// True when [files] look like a complete shard set (no gaps, right count).
 ///

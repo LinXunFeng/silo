@@ -27,6 +27,7 @@ class QueueJob {
     required this.id,
     required this.ref,
     this.variantName,
+    this.filePath,
     this.revision,
     List<String>? targetIds,
     this.status = QueueJobStatus.queued,
@@ -41,6 +42,10 @@ class QueueJob {
 
   /// Null means "let the library pick" — Q4_K_M when the repo offers it.
   final String? variantName;
+
+  /// One file of the repository, picked on its own rather than as part of a
+  /// grouped variant. Never set together with [variantName].
+  final String? filePath;
 
   /// Branch or tag, or null for each source's default.
   final String? revision;
@@ -76,13 +81,18 @@ class QueueJob {
       status == QueueJobStatus.cancelled ||
       status == QueueJobStatus.failed;
 
-  /// Label for the queue row: the variant if known, else the repository.
-  String get title => variantName == null ? ref.id : '${ref.id} · $variantName';
+  /// Label for the queue row: the file or variant if known, else the
+  /// repository.
+  String get title {
+    final String? choice = filePath ?? variantName;
+    return choice == null ? ref.id : '${ref.id} · $choice';
+  }
 
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'ref': ref.id,
         'variant': variantName,
+        'file': filePath,
         'revision': revision,
         'targets': targetIds,
         'status': status.name,
@@ -120,6 +130,7 @@ class QueueJob {
       id: id,
       ref: ModelRef.parse(ref),
       variantName: json['variant'] as String?,
+      filePath: json['file'] as String?,
       revision: json['revision'] as String?,
       targetIds: targets,
       status: status,

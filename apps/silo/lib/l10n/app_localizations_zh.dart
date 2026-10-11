@@ -50,6 +50,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String variantFiles(int count) {
+    return '文件（$count）';
+  }
+
+  @override
+  String get variantFileShard => '分片，需随所属版本一起下载';
+
+  @override
   String get pauseAction => '暂停';
 
   @override

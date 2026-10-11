@@ -10,8 +10,10 @@ The one place a model's bytes physically live, addressed by their digest.
 _Avoid_: cache, repository
 
 **Variant**:
-A single choice within a hub repository — one quantisation, or one
-directory of a safetensors model — and the unit that is stored and linked.
+A single choice within a hub repository — one quantisation, one
+directory of a safetensors model, or one file picked on its own — and the
+unit that is stored and linked. A file picked on its own is that file
+alone, with nothing else from its folder.
 _Avoid_: model file, quant
 
 **Target**:

@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:silo_app/common/format/byte_format.dart';
@@ -19,6 +19,10 @@ import 'package:silo_core/silo_core.dart';
 ///
 /// They sit in a single card rather than a card each: they are alternatives,
 /// not items, and separate cards would read as things you could take several of.
+///
+/// A variant made of several files can be opened to pick one of them alone —
+/// one checkpoint out of a folder that ships four. The file is one more
+/// alternative in the same list, not a second selection.
 class LibraryVariantsView extends StatefulWidget {
   const LibraryVariantsView({super.key});
 
@@ -49,7 +53,11 @@ class _LibraryVariantsViewState extends State<LibraryVariantsView>
     if (state.variants.isEmpty) return const SizedBox.shrink();
 
     final variantRows = <Widget>[
-      for (final variant in state.variants) _buildRow(variant: variant),
+      for (final variant in state.variants) ...<Widget>[
+        _buildRow(variant: variant),
+        if (state.expandedVariantNames.contains(variant.name))
+          for (final file in variant.allFiles) _buildFileRow(file: file),
+      ],
     ];
 
     Widget resultWidget = Column(
@@ -114,6 +122,11 @@ class _LibraryVariantsViewState extends State<LibraryVariantsView>
     Widget resultWidget = Row(
       children: <Widget>[
         Expanded(child: _buildRowLabel(variant: variant)),
+        // A variant of one file has nothing to pick out of it.
+        if (variant.allFiles.length > 1) ...<Widget>[
+          const SizedBox(width: AppSpacing.md),
+          _buildFilesToggle(variant: variant),
+        ],
         const SizedBox(width: AppSpacing.md),
         sizeText,
       ],
@@ -122,6 +135,99 @@ class _LibraryVariantsViewState extends State<LibraryVariantsView>
       isSelected: isSelected,
       onTap: () => logic.selectVariant(name: variant.name),
       child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  /// Opens the variant's files without picking the variant itself.
+  Widget _buildFilesToggle({required ModelVariant variant}) {
+    final bool isExpanded = state.expandedVariantNames.contains(variant.name);
+
+    final countText = Text(
+      l10n.variantFiles(variant.allFiles.length),
+      style: typography.caption1.copyWith(color: palette.accent),
+    );
+    final chevronIcon = MacosIcon(
+      isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
+      size: 11,
+      color: palette.accent,
+    );
+
+    Widget resultWidget = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        countText,
+        const SizedBox(width: 2),
+        chevronIcon,
+      ],
+    );
+    resultWidget = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => logic.toggleVariantFiles(name: variant.name),
+      child: resultWidget,
+    );
+    resultWidget = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  /// One file of an opened variant, pickable on its own.
+  ///
+  /// A shard is listed so the count adds up, but cannot be picked: on its own
+  /// it is a broken model, and the download would be refused.
+  Widget _buildFileRow({required RemoteFile file}) {
+    final bool isShard = isPartialShard(file);
+    final bool isSelected = file.path == state.selectedFilePath;
+
+    final sizeText = Text(
+      formatBytes(bytes: file.size),
+      style: typography.body.copyWith(
+        color: isSelected ? palette.textPrimary : palette.textSecondary,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+      ),
+    );
+
+    Widget resultWidget = Row(
+      children: <Widget>[
+        Expanded(child: _buildFileLabel(file: file)),
+        const SizedBox(width: AppSpacing.md),
+        sizeText,
+      ],
+    );
+    const padding = EdgeInsets.fromLTRB(
+      AppSpacing.xl + AppSpacing.md,
+      AppSpacing.xs,
+      AppSpacing.md,
+      AppSpacing.xs,
+    );
+    resultWidget = isShard
+        ? Padding(padding: padding, child: resultWidget)
+        : AppSelectableRow(
+            isSelected: isSelected,
+            padding: padding,
+            onTap: () => logic.selectFile(path: file.path),
+            child: resultWidget,
+          );
+    return resultWidget;
+  }
+
+  Widget _buildFileLabel({required RemoteFile file}) {
+    final bool isShard = isPartialShard(file);
+    final nameText = Text(
+      file.path,
+      style: typography.body.copyWith(
+        color: isShard ? palette.textSecondary : palette.textPrimary,
+      ),
+    );
+
+    final Widget resultWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        nameText,
+        if (isShard) _buildDetail(detail: l10n.variantFileShard),
+      ],
     );
     return resultWidget;
   }

@@ -189,13 +189,42 @@ class Catalog {
         (targetIds == null || targetIds.contains(l.targetId)));
   }
 
+  /// Records links, replacing earlier records of the same path.
+  ///
+  /// Another entry's record of that path is kept when it is for the same
+  /// bytes. A file picked on its own lands where the variant it was picked
+  /// out of puts it, and both entries have to remember the file is theirs, or
+  /// unlinking one would leave the other unable to find it. A record for
+  /// other bytes is dropped: linking replaced that file, so it is no longer
+  /// the other entry's to keep or to delete.
   void recordLinks(Iterable<LinkRecord> records) {
     for (final record in records) {
       links.removeWhere(
-        (l) => l.targetId == record.targetId && l.path == record.path,
+        (l) =>
+            l.targetId == record.targetId &&
+            l.path == record.path &&
+            (l.entryKey == record.entryKey || l.sha256 != record.sha256),
       );
       links.add(record);
     }
+  }
+
+  /// Whether an entry other than the one [link] belongs to has the same
+  /// file at the same place, so it must stay when [link] is let go of.
+  bool isLinkShared(LinkRecord link) => links.any((l) =>
+      l.entryKey != link.entryKey &&
+      l.targetId == link.targetId &&
+      l.path == link.path &&
+      l.sha256 == link.sha256);
+
+  /// The links as the tools see them: one per file on disk, however many
+  /// entries claim it.
+  List<LinkRecord> get distinctLinks {
+    final seen = <String>{};
+    return <LinkRecord>[
+      for (final link in links)
+        if (seen.add('${link.targetId}\u0000${link.path}')) link,
+    ];
   }
 
   /// Digests referenced by at least one catalogued variant.

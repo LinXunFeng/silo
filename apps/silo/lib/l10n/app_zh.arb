@@ -11,6 +11,8 @@
   "variantShards": "{count} 个分片",
   "variantProjector": "+{count} 个 mmproj",
   "variantSupportFiles": "+{count} 个配套文件",
+  "variantFiles": "文件（{count}）",
+  "variantFileShard": "分片，需随所属版本一起下载",
   "pauseAction": "暂停",
   "resumeAction": "继续",
   "cancelAction": "取消",
