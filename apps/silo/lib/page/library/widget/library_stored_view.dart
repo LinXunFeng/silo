@@ -10,7 +10,6 @@ import 'package:silo_app/common/widget/app_empty_state.dart';
 import 'package:silo_app/common/widget/app_notice.dart';
 import 'package:silo_app/common/widget/app_page_header.dart';
 import 'package:silo_app/common/widget/app_stat_tile.dart';
-import 'package:silo_app/common/widget/app_status_pill.dart';
 import 'package:silo_app/l10n/app_localizations.dart';
 import 'package:silo_app/page/library/header/library_header.dart';
 import 'package:silo_app/page/library/logic/library_logic.dart';
@@ -134,6 +133,22 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
         icon: CupertinoIcons.exclamationmark_circle,
       ));
     }
+    final linkError = state.lastLinkError;
+    if (linkError != null) {
+      notices.add((
+        text: linkError,
+        color: palette.danger,
+        icon: CupertinoIcons.exclamationmark_triangle,
+      ));
+    }
+    final unlinked = state.lastLinkUnlinkedTargetIds;
+    if (unlinked.isNotEmpty) {
+      notices.add((
+        text: l10n.linkedNothingInto(unlinked.map(logic.targetName).join(', ')),
+        color: palette.warning,
+        icon: CupertinoIcons.info_circle,
+      ));
+    }
     final skipped = state.lastUnlinkSkipped;
     if (skipped != null && skipped > 0) {
       notices.add((
@@ -185,6 +200,8 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
         _buildEntryHeader(entry: entry),
         const SizedBox(height: AppSpacing.md),
         _buildEntryMeta(entry: entry),
+        const SizedBox(height: AppSpacing.md),
+        _buildEntryTargets(entry: entry),
         const SizedBox(height: AppSpacing.lg),
         _buildEntryActions(entry: entry),
       ],
@@ -221,36 +238,7 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
       ],
     );
 
-    final Widget resultWidget = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(child: titleColumn),
-        const SizedBox(width: AppSpacing.md),
-        _buildLinkPill(entry: entry),
-      ],
-    );
-    return resultWidget;
-  }
-
-  Widget _buildLinkPill({required CatalogEntry entry}) {
-    final targets = _targetsFor(entry: entry);
-    if (targets.isEmpty) {
-      return AppStatusPill(
-        label: l10n.entryNotLinked,
-        color: palette.neutral,
-      );
-    }
-    return AppStatusPill(
-      label: l10n.entryLinkedTo(targets.join(', ')),
-      color: palette.success,
-    );
-  }
-
-  Set<String> _targetsFor({required CatalogEntry entry}) {
-    return state.catalog
-        .linksFor(entry.key)
-        .map((link) => link.targetId)
-        .toSet();
+    return titleColumn;
   }
 
   Widget _buildEntryMeta({required CatalogEntry entry}) {
@@ -290,27 +278,114 @@ class _LibraryStoredViewState extends State<LibraryStoredView>
     return resultWidget;
   }
 
+  /// One switch per tool, so each model goes exactly where it is wanted.
+  ///
+  /// A tool that can take none of the variant's files is shown but not
+  /// offered: flipping it would link nothing and spring straight back.
+  Widget _buildEntryTargets({required CatalogEntry entry}) {
+    final linked = <String>{
+      for (final link in state.catalog.linksFor(entry.key)) link.targetId,
+    };
+    final usable = state.usableTargetIdsByEntry[entry.key] ?? <String>{};
+    final bool isBusy = state.busyEntryKeys.contains(entry.key);
+
+    final labelText = Text(
+      l10n.targetsTitle,
+      style: typography.caption1.copyWith(color: palette.textSecondary),
+    );
+
+    final Widget resultWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        labelText,
+        const SizedBox(height: AppSpacing.xs),
+        for (final target in state.targets)
+          _buildEntryTarget(
+            entry: entry,
+            target: target,
+            isLinked: linked.contains(target.id),
+            isUsable: usable.contains(target.id),
+            isReady: state.readyTargetIds.contains(target.id),
+            isBusy: isBusy,
+          ),
+      ],
+    );
+    return resultWidget;
+  }
+
+  Widget _buildEntryTarget({
+    required CatalogEntry entry,
+    required DownloadTarget target,
+    required bool isLinked,
+    required bool isUsable,
+    required bool isReady,
+    required bool isBusy,
+  }) {
+    // Something already linked stays switchable even if the target would no
+    // longer take it, or it could never be taken back out.
+    final bool isEnabled = !isBusy && (isLinked || (isUsable && isReady));
+    final String? note = isLinked
+        ? null
+        : !isReady
+            ? l10n.targetNotInstalled
+            : !isUsable
+                ? l10n.entryTargetUnusable
+                : null;
+
+    final nameText = Text(
+      target.displayName,
+      style: typography.body.copyWith(
+        color: isEnabled ? palette.textPrimary : palette.textSecondary,
+      ),
+    );
+
+    final Widget toggle = MacosSwitch(
+      value: isLinked,
+      size: ControlSize.small,
+      onChanged: isEnabled
+          ? (_) => logic.toggleEntryTarget(entry: entry, targetId: target.id)
+          : null,
+    );
+
+    Widget resultWidget = Row(
+      children: <Widget>[
+        toggle,
+        const SizedBox(width: AppSpacing.sm),
+        nameText,
+        if (note != null) ...<Widget>[
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            note,
+            style: typography.caption2.copyWith(color: palette.textSecondary),
+          ),
+        ],
+      ],
+    );
+    if (isLinked && target.requiresImport) {
+      resultWidget = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          resultWidget,
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              l10n.targetRequiresImport(target.displayName),
+              style: typography.caption2.copyWith(color: palette.warning),
+            ),
+          ),
+        ],
+      );
+    }
+    resultWidget = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
   Widget _buildEntryActions({required CatalogEntry entry}) {
     final Widget resultWidget = Row(
       children: <Widget>[
-        PushButton(
-          controlSize: ControlSize.regular,
-          onPressed: () => logic.linkEntry(
-            ref: entry.ref,
-            variantName: entry.variant,
-          ),
-          child: Text(l10n.linkAction),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        PushButton(
-          controlSize: ControlSize.regular,
-          secondary: true,
-          onPressed: () => logic.unlinkEntry(
-            ref: entry.ref,
-            variantName: entry.variant,
-          ),
-          child: Text(l10n.unlinkAction),
-        ),
         const Spacer(),
         PushButton(
           controlSize: ControlSize.regular,

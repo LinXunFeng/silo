@@ -182,12 +182,6 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancelAction;
 
-  /// No description provided for @linkAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Link'**
-  String get linkAction;
-
   /// No description provided for @removeAction.
   ///
   /// In en, this message translates to:
@@ -290,18 +284,6 @@ abstract class AppLocalizations {
   /// **'Deduplication saved {size}'**
   String librarySaved(String size);
 
-  /// No description provided for @entryLinkedTo.
-  ///
-  /// In en, this message translates to:
-  /// **'Linked into {targets}'**
-  String entryLinkedTo(String targets);
-
-  /// No description provided for @entryNotLinked.
-  ///
-  /// In en, this message translates to:
-  /// **'Not linked yet'**
-  String get entryNotLinked;
-
   /// No description provided for @entrySource.
   ///
   /// In en, this message translates to:
@@ -319,6 +301,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'not installed'**
   String get targetNotInstalled;
+
+  /// No description provided for @linkedNothingInto.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing linked into {targets}: this variant has no file it can use'**
+  String linkedNothingInto(String targets);
 
   /// No description provided for @linkedResult.
   ///
@@ -464,12 +452,6 @@ abstract class AppLocalizations {
   /// **'{size} unreferenced — reclaim to free it'**
   String libraryReclaimable(String size);
 
-  /// No description provided for @unlinkAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Unlink'**
-  String get unlinkAction;
-
   /// No description provided for @gcResult.
   ///
   /// In en, this message translates to:
@@ -611,7 +593,7 @@ abstract class AppLocalizations {
   /// No description provided for @targetsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Where a finished download gets hard-linked.'**
+  /// **'Where new downloads get hard-linked by default. A model already in the library is linked tool by tool from its own card.'**
   String get targetsSubtitle;
 
   /// No description provided for @targetsSelected.
@@ -679,6 +661,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dark'**
   String get appearanceDark;
+
+  /// No description provided for @entryTargetUnusable.
+  ///
+  /// In en, this message translates to:
+  /// **'nothing it can use'**
+  String get entryTargetUnusable;
+
+  /// No description provided for @targetRequiresImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Linking only lists it in {target}; import it there before it can be used.'**
+  String targetRequiresImport(String target);
 }
 
 class _AppLocalizationsDelegate

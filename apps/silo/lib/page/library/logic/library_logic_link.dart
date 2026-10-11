@@ -13,49 +13,73 @@ import 'package:silo_core/silo_core.dart';
 /// was queued for. What is left here is linking on demand, from the stored
 /// library, after the fact.
 extension LibraryLogicLink on LibraryLogic {
+  /// Adds or drops a default target for new downloads.
+  ///
+  /// A target that would refuse the link — Draw Things before its first
+  /// launch — cannot be picked: it would fail the whole link when the download
+  /// lands, taking the other targets down with it.
   void toggleTarget({required String targetId}) {
     if (state.selectedTargetIds.contains(targetId)) {
       state.selectedTargetIds.remove(targetId);
-    } else {
+    } else if (state.readyTargetIds.contains(targetId)) {
       state.selectedTargetIds.add(targetId);
     }
     update(<Object>[LibraryUpdateType.targets]);
   }
 
-  /// Hard-links a stored variant into every selected target.
-  Future<void> linkEntry({
-    required ModelRef ref,
-    required String variantName,
+  /// Links a stored variant into [targetId], or takes it back out.
+  ///
+  /// One switch per tool on each model's card, so one model can live in LM
+  /// Studio and Draw Things while the next lives only in LM Studio. Which way
+  /// it goes is read from the catalogue — what is on record as linked — so the
+  /// switch can never disagree with the disk for long.
+  Future<void> toggleEntryTarget({
+    required CatalogEntry entry,
+    required String targetId,
   }) async {
-    final targetIds = state.selectedTargetIds.toList();
-    if (targetIds.isEmpty) return;
+    if (!state.busyEntryKeys.add(entry.key)) return;
+    update(<Object>[LibraryUpdateType.stored]);
 
+    final bool isLinked = state.catalog
+        .linksFor(entry.key)
+        .any((link) => link.targetId == targetId);
+    _clearLinkNotices();
     try {
-      await library.link(
-        ref,
-        targetIds: targetIds,
-        variantName: variantName,
-      );
-      state.errorMessage = null;
+      if (isLinked) {
+        final results = await library.unlink(
+          entry.ref,
+          variantName: entry.variant,
+          targetIds: <String>[targetId],
+        );
+        state.lastUnlinkSkipped =
+            results.fold<int>(0, (sum, r) => sum + r.skipped.length);
+      } else {
+        final results = await library.link(
+          entry.ref,
+          targetIds: <String>[targetId],
+          variantName: entry.variant,
+        );
+        state.lastLinkUnlinkedTargetIds = <String>[
+          for (final result in results)
+            if (result.links.isEmpty) result.targetId,
+        ];
+      }
+    } on StateError catch (error) {
+      // Silo's own refusals are written to be read; "Bad state:" is noise.
+      state.lastLinkError = error.message;
     } on Object catch (error) {
-      state.errorMessage = '$error';
+      state.lastLinkError = '$error';
     }
 
-    await loadStored();
-  }
-
-  /// Takes a variant back out of the tools, leaving it in the store.
-  ///
-  /// Files the user replaced by hand are left alone; the count is surfaced so
-  /// the difference between "removed" and "left alone" is visible.
-  Future<void> unlinkEntry({
-    required ModelRef ref,
-    required String variantName,
-  }) async {
-    final results = await library.unlink(ref, variantName: variantName);
-    state.lastUnlinkSkipped =
-        results.fold<int>(0, (sum, r) => sum + r.skipped.length);
-    await loadStored();
+    // Released only once the catalogue is reread: a rebuild in between would
+    // re-enable the switch while it still showed the old state, and the next
+    // flip would repeat what was just done.
+    try {
+      await loadStored();
+    } finally {
+      state.busyEntryKeys.remove(entry.key);
+      update(<Object>[LibraryUpdateType.stored]);
+    }
   }
 
   /// Forgets a variant, taking it out of the tools first.
@@ -68,8 +92,17 @@ extension LibraryLogicLink on LibraryLogic {
     required ModelRef ref,
     required String variantName,
   }) async {
+    _clearLinkNotices();
     await library.forget(ref, variantName: variantName);
     await loadStored();
+  }
+
+  /// A link or unlink notice describes the last switch flipped, so the next
+  /// switch or removal retires it rather than leaving it to read as current.
+  void _clearLinkNotices() {
+    state.lastLinkError = null;
+    state.lastLinkUnlinkedTargetIds = <String>[];
+    state.lastUnlinkSkipped = null;
   }
 
   /// Asks before deleting anything, then reclaims.

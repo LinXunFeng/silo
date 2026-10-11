@@ -89,13 +89,32 @@ class LibraryState {
   /// Target ids that exist on this machine.
   Set<String> presentTargetIds = <String>{};
 
+  /// Target ids that would accept a link right now. Not the same as present:
+  /// LM Studio's folder can be created on the first link, Draw Things' cannot.
+  Set<String> readyTargetIds = <String>{};
+
+  /// Where new downloads are linked by default. A model already in the
+  /// library is linked target by target from its own card instead.
   Set<String> selectedTargetIds = <String>{'lmstudio'};
+
+  /// Per catalogue entry key, the targets that would receive any of its files.
+  Map<String, Set<String>> usableTargetIdsByEntry = <String, Set<String>>{};
+
+  /// Entries with a link or unlink in flight, whose switches are held still
+  /// until it lands.
+  Set<String> busyEntryKeys = <String>{};
 
   // ── Housekeeping ──────────────────────────────────────────────────────────
 
   /// Files the last unlink refused to delete because they were no longer the
   /// ones Silo put there.
   int? lastUnlinkSkipped;
+
+  /// Why the last manual link failed, if it did.
+  String? lastLinkError;
+
+  /// Ids of the targets the last manual link put nothing into.
+  List<String> lastLinkUnlinkedTargetIds = <String>[];
 
   int? lastGcBlobs;
   int? lastGcFreedBytes;

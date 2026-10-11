@@ -69,10 +69,16 @@ class _LibraryTargetsViewState extends State<LibraryTargetsView>
 
   Widget _buildRow({required DownloadTarget target}) {
     final bool isSelected = state.selectedTargetIds.contains(target.id);
+    final bool isSelectable =
+        isSelected || state.readyTargetIds.contains(target.id);
 
     Widget resultWidget = Row(
       children: <Widget>[
-        _buildCheckbox(target: target, isSelected: isSelected),
+        _buildCheckbox(
+          target: target,
+          isSelected: isSelected,
+          isSelectable: isSelectable,
+        ),
         const SizedBox(width: AppSpacing.md),
         Expanded(child: _buildLabel(target: target)),
       ],
@@ -98,13 +104,19 @@ class _LibraryTargetsViewState extends State<LibraryTargetsView>
   /// It keeps its enabled colours — a disabled checkbox would say the target
   /// cannot be picked — but takes no pointers, so a click on the box and a
   /// click beside it are the same single toggle rather than two competing ones.
+  ///
+  /// A target that would refuse the link is the exception: it really cannot
+  /// be picked, so its box says so.
   Widget _buildCheckbox({
     required DownloadTarget target,
     required bool isSelected,
+    required bool isSelectable,
   }) {
     Widget resultWidget = MacosCheckbox(
       value: isSelected,
-      onChanged: (_) => logic.toggleTarget(targetId: target.id),
+      onChanged: isSelectable
+          ? (_) => logic.toggleTarget(targetId: target.id)
+          : null,
     );
     resultWidget = IgnorePointer(child: resultWidget);
     return resultWidget;
@@ -138,13 +150,21 @@ class _LibraryTargetsViewState extends State<LibraryTargetsView>
         ),
         const SizedBox(height: 2),
         pathText,
+        if (target.requiresImport) ...<Widget>[
+          const SizedBox(height: 2),
+          Text(
+            l10n.targetRequiresImport(target.displayName),
+            style: typography.caption2.copyWith(color: palette.warning),
+          ),
+        ],
       ],
     );
     return resultWidget;
   }
 
-  /// A tool that is not installed can still be selected — its directory is
-  /// created on the first link — so this is a note, not a warning.
+  /// A tool that is not installed can usually still be selected — its
+  /// directory is created on the first link — so this is a note, not a
+  /// warning. Draw Things is the exception, and its checkbox says so.
   Widget _buildAbsentPill() {
     Widget resultWidget = AppStatusPill(
       label: l10n.targetNotInstalled,

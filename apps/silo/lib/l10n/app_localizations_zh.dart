@@ -59,9 +59,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancelAction => '取消';
 
   @override
-  String get linkAction => '分发';
-
-  @override
   String get removeAction => '移除';
 
   @override
@@ -125,14 +122,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String entryLinkedTo(String targets) {
-    return '已分发到 $targets';
-  }
-
-  @override
-  String get entryNotLinked => '尚未分发';
-
-  @override
   String entrySource(String source, String revision) {
     return '$source · $revision';
   }
@@ -142,6 +131,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get targetNotInstalled => '未安装';
+
+  @override
+  String linkedNothingInto(String targets) {
+    return '$targets 未分发任何文件：这个变体里没有它能用的文件';
+  }
 
   @override
   String linkedResult(String visible, String cost) {
@@ -230,9 +224,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get unlinkAction => '取消分发';
-
-  @override
   String gcResult(String freed, int count) {
     return '已释放 $freed，共 $count 个 blob';
   }
@@ -316,7 +307,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get targetsNavTitle => '分发目标';
 
   @override
-  String get targetsSubtitle => '下载完成后硬链接到这些工具。';
+  String get targetsSubtitle => '新下载完成后默认硬链接到这些工具。已在库中的模型，在它自己的卡片上逐个工具设置。';
 
   @override
   String targetsSelected(String targets) {
@@ -352,4 +343,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appearanceDark => '深色';
+
+  @override
+  String get entryTargetUnusable => '没有它能用的文件';
+
+  @override
+  String targetRequiresImport(String target) {
+    return '分发后只会出现在 $target 的导入列表里，需在 $target 中导入后才能使用。';
+  }
 }

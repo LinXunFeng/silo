@@ -23,7 +23,7 @@ class LibraryLogic extends GetxController {
       ModelScopeSource(),
       HuggingFaceSource(),
     ],
-    targets: <DownloadTarget>[LmStudioTarget()],
+    targets: <DownloadTarget>[LmStudioTarget(), DrawThingsTarget()],
   );
 
   /// Shares its queue file with the CLI, so a run interrupted in one shows up
@@ -65,8 +65,15 @@ class LibraryLogic extends GetxController {
   Future<void> loadStored() async {
     final catalog = await library.readCatalog();
     final present = <String>{};
+    final ready = <String>{};
     for (final target in state.targets) {
       if (await target.isPresent()) present.add(target.id);
+      try {
+        await target.ensureReady();
+        ready.add(target.id);
+      } on Object {
+        // Not ready: its switches are held off until it is.
+      }
     }
 
     // Logical size is what these files would have cost stored the ordinary
@@ -82,12 +89,21 @@ class LibraryLogic extends GetxController {
         .fold<int>(0, (sum, link) => sum + (sizeByDigest[link.sha256] ?? 0));
 
     final reclaimable = await library.reclaimable();
+    final usable = <String, Set<String>>{
+      for (final entry in catalog.entries)
+        entry.key: await library.usableTargetIds(entry),
+    };
 
     state.catalog = catalog;
     state.storeBytes = await store.totalSize();
     state.logicalBytes = catalogued + linked;
     state.reclaimableBytes = reclaimable.bytes;
     state.presentTargetIds = present;
+    state.readyTargetIds = ready;
+    // A default target that stopped accepting links is dropped rather than
+    // left to fail the next download's link.
+    state.selectedTargetIds.removeWhere((id) => !ready.contains(id));
+    state.usableTargetIdsByEntry = usable;
     update(<Object>[
       LibraryUpdateType.stored,
       LibraryUpdateType.targets,
@@ -95,6 +111,9 @@ class LibraryLogic extends GetxController {
       LibraryUpdateType.navigation,
     ]);
   }
+
+  /// The name a target is shown under, falling back to its id.
+  String targetName(String id) => library.targetById(id)?.displayName ?? id;
 
   /// Opens a path in Finder.
   Future<void> revealInFinder({required String path}) async {

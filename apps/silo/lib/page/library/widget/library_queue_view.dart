@@ -148,6 +148,10 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
         if (job.status == QueueJobStatus.running) _buildJobProgress(job: job),
         if (job.error != null) _buildJobError(job: job),
         if (job.status == QueueJobStatus.completed) _buildJobResult(job: job),
+        if (job.unlinkedTargetIds.isNotEmpty) _buildJobUnlinked(job: job),
+        if (job.status == QueueJobStatus.completed &&
+            job.linkedVisibleBytes != null)
+          ..._buildJobImportHints(job: job),
         const SizedBox(height: AppSpacing.lg),
         _buildJobActions(job: job, jobs: jobs),
       ],
@@ -302,6 +306,11 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
     final visible = job.linkedVisibleBytes;
     final cost = job.linkedCostBytes;
     if (visible == null || cost == null) return const SizedBox.shrink();
+    // Every target turned the variant down; the notice below says so, and
+    // "0 B visible" beside a green tick would claim otherwise.
+    if (job.unlinkedTargetIds.length == job.targetIds.length) {
+      return const SizedBox.shrink();
+    }
 
     Widget resultWidget = AppNotice(
       icon: CupertinoIcons.checkmark_circle,
@@ -316,6 +325,43 @@ class _LibraryQueueViewState extends State<LibraryQueueView>
       child: resultWidget,
     );
     return resultWidget;
+  }
+
+  /// A target that took nothing is a mismatch, not a failure — amber, not red.
+  Widget _buildJobUnlinked({required QueueJob job}) {
+    Widget resultWidget = AppNotice(
+      icon: CupertinoIcons.info_circle,
+      message: l10n.linkedNothingInto(
+        _targetNames(ids: job.unlinkedTargetIds),
+      ),
+      color: palette.warning,
+    );
+    resultWidget = Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: resultWidget,
+    );
+    return resultWidget;
+  }
+
+  String _targetNames({required List<String> ids}) =>
+      ids.map(logic.targetName).join(', ');
+
+  /// The moment a download lands is when someone goes looking for it in the
+  /// tool, so a target that still has to import says so here too.
+  List<Widget> _buildJobImportHints({required QueueJob job}) {
+    return <Widget>[
+      for (final id in job.targetIds)
+        if (!job.unlinkedTargetIds.contains(id) &&
+            (logic.library.targetById(id)?.requiresImport ?? false))
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: AppNotice(
+              icon: CupertinoIcons.info_circle,
+              message: l10n.targetRequiresImport(logic.targetName(id)),
+              color: palette.warning,
+            ),
+          ),
+    ];
   }
 
   Widget _buildJobError({required QueueJob job}) {

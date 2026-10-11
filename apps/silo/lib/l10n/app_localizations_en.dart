@@ -59,9 +59,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelAction => 'Cancel';
 
   @override
-  String get linkAction => 'Link';
-
-  @override
   String get removeAction => 'Remove';
 
   @override
@@ -125,14 +122,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String entryLinkedTo(String targets) {
-    return 'Linked into $targets';
-  }
-
-  @override
-  String get entryNotLinked => 'Not linked yet';
-
-  @override
   String entrySource(String source, String revision) {
     return '$source · $revision';
   }
@@ -142,6 +131,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get targetNotInstalled => 'not installed';
+
+  @override
+  String linkedNothingInto(String targets) {
+    return 'Nothing linked into $targets: this variant has no file it can use';
+  }
 
   @override
   String linkedResult(String visible, String cost) {
@@ -229,9 +223,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String libraryReclaimable(String size) {
     return '$size unreferenced — reclaim to free it';
   }
-
-  @override
-  String get unlinkAction => 'Unlink';
 
   @override
   String gcResult(String freed, int count) {
@@ -322,7 +313,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get targetsNavTitle => 'Targets';
 
   @override
-  String get targetsSubtitle => 'Where a finished download gets hard-linked.';
+  String get targetsSubtitle =>
+      'Where new downloads get hard-linked by default. A model already in the library is linked tool by tool from its own card.';
 
   @override
   String targetsSelected(String targets) {
@@ -360,4 +352,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appearanceDark => 'Dark';
+
+  @override
+  String get entryTargetUnusable => 'nothing it can use';
+
+  @override
+  String targetRequiresImport(String target) {
+    return 'Linking only lists it in $target; import it there before it can be used.';
+  }
 }
