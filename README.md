@@ -21,9 +21,9 @@ Every local AI app keeps its own folder of models, so the same model ends up on
 disk once per app. Silo keeps **one copy** of each model and links it into
 every tool that uses it, so a 5 GB model takes 5 GB however many tools use it.
 
-It also makes getting models painless: one search box across HuggingFace and
-its mirrors, the fastest mirror picked for you, and downloads that survive a
-dropped connection.
+It also makes getting models painless: one search box across HuggingFace,
+ModelScope and their mirrors, the fastest source picked for you, and downloads
+that resume where they stopped.
 
 ## ☕ Support me
 
@@ -48,14 +48,17 @@ Chat: [Join WeChat group](https://mp.weixin.qq.com/s/JBbMstn0qW6M71hh-BRKzw)
 
 ## ✨ Features
 
-- 💾 **One copy, every tool.** Each model is stored once and shared with every
-  tool that uses it. No duplicates, and the tools don't know the difference.
+- 💾 **One copy, every tool.** Each model is stored once and hard-linked into
+  every tool that uses it. No duplicates, and the tools don't know the
+  difference. A tool's model folder has to be on the same volume as the
+  library; across volumes the model is copied instead.
 - 🔍 **One search box.** Search HuggingFace and ModelScope at once,
   or paste an exact `author/repo` to see every quant with its size.
 - ⚡ **The fastest mirror, measured.** Silo tests the mirrors before
   downloading and moves to another one if a download fails.
-- 🔁 **Downloads that don't give up.** Pause, quit or reboot and pick up where
-  you left off. Every file is checked when it finishes.
+- 🔁 **Resumable downloads.** Pause, quit, lose the connection or reboot, and
+  the download picks up where it stopped instead of starting over. Files whose
+  source publishes a SHA-256 are verified when they finish.
 - 🧩 **Models stay whole.** Split weights and the extra files a vision model
   needs show up as one item.
 - 🖥 **App and command line.** A native macOS app and a `silo` command that
