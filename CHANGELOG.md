@@ -15,6 +15,43 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`silo_app` - `v0.1.2+3`](#silo_app---v0123)
+ - [`silo_cli` - `v0.1.2+3`](#silo_cli---v0123)
+ - [`silo_core` - `v0.1.2+3`](#silo_core---v0123)
+
+---
+
+#### `silo_app` - `v0.1.2+3`
+
+##### Features
+
+ - download a single file of a repository with --file. ([6a5c4757](https://github.com/LinXunFeng/silo/commit/6a5c4757a9c7fd5699fb06b46e5e7b5651915425))
+
+#### `silo_cli` - `v0.1.2+3`
+
+##### Features
+
+ - download a single file of a repository with --file. ([6a5c4757](https://github.com/LinXunFeng/silo/commit/6a5c4757a9c7fd5699fb06b46e5e7b5651915425))
+
+#### `silo_core` - `v0.1.2+3`
+
+##### Features
+
+ - download a single file of a repository with --file. ([6a5c4757](https://github.com/LinXunFeng/silo/commit/6a5c4757a9c7fd5699fb06b46e5e7b5651915425))
+
+
+## 2026-10-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`silo_app` - `v0.1.1+2`](#silo_app---v0112)
  - [`silo_cli` - `v0.1.1+2`](#silo_cli---v0112)
  - [`silo_core` - `v0.1.1+2`](#silo_core---v0112)
